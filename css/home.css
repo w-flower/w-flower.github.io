@@ -4,7 +4,7 @@ body {
     max-width: 100%;
     height: 100%;
     overflow-x: hidden;
-    font-family: microsoft yahei light,microsoft yahei,Helvetica,sans-serif,等线;
+    font-family: microsoft yahei light, microsoft yahei, Helvetica, sans-serif, 等线;
     cursor: default;
     -webkit-tap-highlight-color: transparent;
     -moz-user-select: none;
@@ -12,29 +12,29 @@ body {
     -ms-user-select: none;
     -khtml-user-select: none;
     user-select: none;
-    
-    
+
+
 }
 
 
 #topTitle {
     background-color: rgba(4, 104, 199, 0.37);
     position: relative;
-    
+
     top: 30%;
     width: 100%;
     text-align: center;
-    
+
 }
 
 
-#logo{
-    margin:10px auto;
-    
-} 
+#logo {
+    margin: 10px auto;
 
-#logo img{
-    border-radius:50%;
+}
+
+#logo img {
+    border-radius: 50%;
     width: 150px;
     height: 150px;
     transition: all .25s;
@@ -44,7 +44,8 @@ body {
     -ms-transition: all .25s;
 
 }
-#logo img:hover{
+
+#logo img:hover {
     width: 200px;
     height: 200px;
     cursor: pointer;
@@ -66,7 +67,7 @@ body {
     -moz-transition: all .25s;
     -o-transition: all .25s;
     -ms-transition: all .25s;
-    background: rgba(0,0,0,0.15);
+    background: rgba(0, 0, 0, 0.15);
     padding: 10px;
     margin-left: 5px;
     margin-right: 5px;
@@ -74,41 +75,50 @@ body {
 }
 
 .navLink:hover {
-    background: rgba(0,0,0,0.35);
+    background: rgba(0, 0, 0, 0.35);
     color: #ffffffe3;
-    -webkit-box-shadow: rgba(0,0,0,.1) 0 5px 10px;
-    -moz-box-shadow: rgba(0,0,0,.1) 0 5px 10px;
-    box-shadow: rgba(0,0,0,.1) 0 5px 10px
-    
-    
+    -webkit-box-shadow: rgba(0, 0, 0, .1) 0 5px 10px;
+    -moz-box-shadow: rgba(0, 0, 0, .1) 0 5px 10px;
+    box-shadow: rgba(0, 0, 0, .1) 0 5px 10px
+}
+
+.underline1 {
+    position: absolute;
+    left: 47.5%;
+    margin-top: 20px;
+    width: 50px;
+    border-bottom: 3px solid #09e7e7;
 }
 
 
 
 
-a{
-    text-decoration:none;
+a {
+    text-decoration: none;
     font-size: 1.5rem;
-    color:rgb(0, 0, 0);
+    color: rgb(0, 0, 0);
     font-size: small;
-    
+
 }
-a:link{
-    color:rgb(0, 0, 0);
-    text-decoration: none; 
+
+a:link {
+    color: rgb(0, 0, 0);
+    text-decoration: none;
     font-size: small;
-    
+
 }
-a:visited{
-    color:rgb(0, 0, 0);
-    text-decoration: underline; 
+
+a:visited {
+    color: rgb(0, 0, 0);
+    text-decoration: underline;
     font-size: small;
-    
+
 }
-a:hover{
-    color:rgb(0, 0, 0);
-    text-decoration: none; 
+
+a:hover {
+    color: rgb(0, 0, 0);
+    text-decoration: none;
     font-size: small;
-    
-    
+
+
 }
