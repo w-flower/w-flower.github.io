@@ -67,7 +67,7 @@ body {
     -moz-transition: all .25s;
     -o-transition: all .25s;
     -ms-transition: all .25s;
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.25);
     padding: 10px;
     margin-left: 5px;
     margin-right: 5px;
@@ -75,7 +75,7 @@ body {
 }
 
 .navLink:hover {
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(3, 199, 248, 0.35);
     color: #ffffffe3;
     -webkit-box-shadow: rgba(0, 0, 0, .1) 0 5px 10px;
     -moz-box-shadow: rgba(0, 0, 0, .1) 0 5px 10px;
@@ -96,7 +96,7 @@ body {
 a {
     text-decoration: none;
     font-size: 1.5rem;
-    color: rgb(0, 0, 0);
+    color: rgb(204, 204, 204);
     font-size: small;
 
 }
