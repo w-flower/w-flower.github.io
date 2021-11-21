@@ -8,9 +8,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
-<link rel="shortcut icon" href="http://localhost:4000/favicon.ico?v=1637474097436">
+<link rel="shortcut icon" href="http://localhost:4000/favicon.ico?v=1637475632575">
 <link rel="stylesheet" href="http://localhost:4000/styles/main.css">
 
+
+  
+
+  
+    <link rel="stylesheet" href="https://unpkg.com/disqusjs@1.1/dist/disqusjs.css" />
+  
 
 
 <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
@@ -46,7 +52,7 @@ coding
   <div class="top-container" data-aos="fade-right">
     <div class="top-header-container">
       <a class="site-title-container" href="http://localhost:4000">
-        <img src="http://localhost:4000/images/avatar.png?v=1637474097436" class="site-logo">
+        <img src="http://localhost:4000/images/avatar.png?v=1637475632575" class="site-logo">
         <h1 class="site-title">落霞·冬花</h1>
       </a>
       <div class="menu-btn" @click="menuVisible = !menuVisible">
@@ -141,6 +147,12 @@ coding
             
 
             
+              
+
+              
+                <div id="disqus_thread" data-aos="fade-in"></div>
+              
+            
 
           </div>
 
@@ -163,6 +175,26 @@ var app = new Vue({
 </script>
 
 
+
+
+
+  
+
+  
+    <script src="https://unpkg.com/disqusjs@1.1/dist/disqus.js"></script>
+    <script>
+
+    var options = {
+      shortname: '',
+      apikey: '',
+    }
+    if ('') {
+      options.api = ''
+    }
+    var dsqjs = new DisqusJS(options)
+
+    </script>
+  
 
 
 
