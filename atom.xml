@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://feilong-hello.github.io/</id>
     <title>落霞·冬花</title>
-    <updated>2021-11-21T04:45:46.028Z</updated>
+    <updated>2021-11-21T05:37:52.716Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://feilong-hello.github.io/"/>
     <link rel="self" href="https://feilong-hello.github.io/atom.xml"/>
@@ -11,7 +11,68 @@
     <icon>https://feilong-hello.github.io/favicon.ico</icon>
     <rights>All rights reserved 2021, 落霞·冬花</rights>
     <entry>
-        <title type="html"><![CDATA[关于]]></title>
+        <title type="html"><![CDATA[2048-离线小游戏, 归回经典]]></title>
+        <id>https://feilong-hello.github.io/post/2048/</id>
+        <link href="https://feilong-hello.github.io/post/2048/">
+        </link>
+        <updated>2021-11-21T05:34:17.000Z</updated>
+        <content type="html"><![CDATA[<p><img src="https://feilong-hello.github.io//post-images/1637472919969.png" alt="" loading="lazy"><br>
+windows桌面应用</p>
+<h1 id="2048">2048</h1>
+<p>这是一款2048小游戏</p>
+<p>游戏规则可以自行搜索(或者看下文), 此小游戏模仿网络自创</p>
+<p>这款游戏有许多瑕疵, 求各位大佬指出</p>
+<h2 id="作者">作者</h2>
+<p>feilong-hello(邮箱: 1040778649@qq.com)</p>
+<h2 id="我为什么开发这个游戏">我为什么开发这个游戏</h2>
+<p>因为我是一个新手, 我想训练一下我的算法, 起初只是控制台程序, 但是后来我又想练练界面编程, 于是就变成了GUI</p>
+<h2 id="如何开始">如何开始</h2>
+<p>下载之后解压, 打开文件夹, 找到&quot;2048(开始游戏)&quot;文件, 点击打开即可</p>
+<h2 id="用的软件">用的软件</h2>
+<ul>
+<li>wxformbuider - python3.8.3</li>
+</ul>
+<h2 id="功能">功能</h2>
+<ul>
+<li>
+<p>战绩:通过本地record.txt存储</p>
+</li>
+<li>
+<p>简陋的日志:bug.txt</p>
+</li>
+<li>
+<p>2048主功能</p>
+</li>
+<li>
+<p>难度调整</p>
+</li>
+<li>
+<p>人机对战(开发中)</p>
+</li>
+</ul>
+<h2 id="怎么玩">怎么玩</h2>
+<h3 id="目标">目标</h3>
+<p>获得2048方块(可以调整为其他方块)</p>
+<h3 id="操作">操作</h3>
+<ul>
+<li>
+<p>w: 方块向上</p>
+</li>
+<li>
+<p>a: 方块向左</p>
+</li>
+<li>
+<p>s: 方块向下</p>
+</li>
+<li>
+<p>d: 方块向右</p>
+</li>
+</ul>
+<p>我会一直勤快的更新的~~</p>
+]]></content>
+    </entry>
+    <entry>
+        <title type="html"><![CDATA[关于我]]></title>
         <id>https://feilong-hello.github.io/post/about/</id>
         <link href="https://feilong-hello.github.io/post/about/">
         </link>
