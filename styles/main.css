@@ -758,3 +758,44 @@ a {
   font-size: 16px;
   margin: 4px 8px;
 }
+
+      .sidebar {
+        width: 25.2%;
+      }
+      .main-container {
+        margin-left: 25.2%;
+      }
+    
+      .sidebar{background-image:url(https://z3.ax1x.com/2021/05/08/gJkwrt.png)}
+.site-nav{
+    text-decoration: none;
+    transition: all .25s;
+    -webkit-transition: all .25s;
+    -moz-transition: all .25s;
+    -o-transition: all .25s;
+    -ms-transition: all .25s;
+    color: #faf9f9;
+    text-align: center;
+}
+
+.site-nav:hover{
+ background: rgba(0, 0, 0, 0.35);
+    color: #1ae9f0e3;
+    -webkit-box-shadow: rgba(0, 0, 0, .1) 0 5px 10px;
+    -moz-box-shadow: rgba(0, 0, 0, .1) 0 5px 10px;
+    box-shadow: rgba(0, 0, 0, 0.055) 0 5px 10px}
+
+.site-logo{
+border-radius: 50%;
+    transition: all .25s;
+    -webkit-transition: all .25s;
+    -moz-transition: all .25s;
+    -o-transition: all .25s;
+    -ms-transition: all .25s;
+}
+.site-logo:hover{
+ width: 100px;
+    height: 100px;
+    cursor: pointer;}
+
+    
