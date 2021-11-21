@@ -786,6 +786,9 @@ a {
     box-shadow: rgba(0, 0, 0, 0.055) 0 5px 10px}
 
 .site-logo{
+position:relative
+width: 80px;
+    height: 80px;
 border-radius: 50%;
     transition: all .25s;
     -webkit-transition: all .25s;
