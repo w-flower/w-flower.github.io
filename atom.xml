@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>http://localhost:4000</id>
     <title>落霞·冬花</title>
-    <updated>2021-11-21T05:41:45.872Z</updated>
+    <updated>2021-11-21T05:54:59.983Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="http://localhost:4000"/>
     <link rel="self" href="http://localhost:4000/atom.xml"/>
@@ -69,7 +69,10 @@ windows桌面应用<br>
 <p>d: 方块向右</p>
 </li>
 </ul>
-<p>我会一直勤快的更新的~~</p>
+<blockquote>
+<p>声明：代码均为自创，若不是，则会简介里面提出, 支持正版！！( •̀ ω •́ )✧<br>
+我会一直勤快的更新的~~👨‍💻💪</p>
+</blockquote>
 ]]></content>
     </entry>
     <entry>
