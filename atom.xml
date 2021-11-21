@@ -2,7 +2,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://feilong-hello.github.io/</id>
     <title>落霞·冬花</title>
-    <updated>2021-11-21T02:28:34.396Z</updated>
+    <updated>2021-11-21T02:28:58.414Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://feilong-hello.github.io/"/>
     <link rel="self" href="https://feilong-hello.github.io/atom.xml"/>
@@ -10,15 +10,6 @@
     <logo>https://feilong-hello.github.io/images/avatar.png</logo>
     <icon>https://feilong-hello.github.io/favicon.ico</icon>
     <rights>All rights reserved 2021, 落霞·冬花</rights>
-    <entry>
-        <title type="html"><![CDATA[关于我]]></title>
-        <id>https://feilong-hello.github.io/post/guan-yu-wo/</id>
-        <link href="https://feilong-hello.github.io/post/guan-yu-wo/">
-        </link>
-        <updated>2021-11-21T02:26:47.000Z</updated>
-        <content type="html"><![CDATA[<p>&lt;ahref=&quot;https://feilong-hello.github.io/post/about&quot; target=&quot;_blank&quot;&gt;关于我</a></p>
-]]></content>
-    </entry>
     <entry>
         <title type="html"><![CDATA[关于]]></title>
         <id>https://feilong-hello.github.io/post/about/</id>
