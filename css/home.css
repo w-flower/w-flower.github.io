@@ -83,10 +83,27 @@ body {
 }
 
 .underline1 {
+    /*in the center of the line*/
     position: absolute;
-    left: 47.5%;
+    left: 50%;
+
+    
+    transform: translate(-50%, -50%);
+
+    cursor: pointer; 
+    
     margin-top: 20px;
     width: 50px;
+    border-bottom: 3px solid #09e7e7;
+    transition: all .25s;
+    -webkit-transition: all .25s;
+    -moz-transition: all .25s;
+    -o-transition: all .25s;
+    -ms-transition: all .25s;
+}
+
+.underline1:hover {/*be long to the underline*/
+    width: 100px;
     border-bottom: 3px solid #09e7e7;
 }
 
