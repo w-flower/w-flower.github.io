@@ -1,32 +1,31 @@
+/**
+ * ============================================================
+ *  站点信息 / 身份 / 主题开关
+ * ============================================================
+ *  只放「你是谁」和「站叫什么」，不放界面文案。
+ *  界面上的每一句话都在 src/copy.ts。
+ * ============================================================
+ */
+
 export const site = {
   name: "未命名",
-  tagline: "把想明白的事记下来，把没想明白的也记下来。",
   description: "学习笔记、C++ 代码与日常随笔。",
   url: "https://example.com",
   lang: "zh-CN",
 
   author: {
     name: "DHua",
-    // 头像放在 public/ 下，改文件名即可
+    // 头像放 public/ 下，填文件名；留空则不显示
     avatar: "",
     bio: "在读，写代码，偶尔写点别的。",
   },
 
-  nav: [
-    { label: "文章", href: "/posts" },
-    { label: "笔记", href: "/notes" },
-    { label: "代码", href: "/snippets" },
-    { label: "随笔", href: "/micro" },
-  ],
-
-  // 怪元素开关：全部可关，关掉不影响构建
+  /* ── 怪元素开关：全部可单独关，关掉不影响构建 ────────── */
   quirks: {
-    introReveal: true,
-    seasonalLine: true,
-    cursorDot: false,
-    logoSecret: true,
-    floatingQuote: true,
+    introReveal: true, // 首屏淡入
+    seasonalLine: true, // 页脚随月份变化的一句话
+    logoSecret: true, // 连点站名 5 次
   },
-} as const;
+};
 
 export type Site = typeof site;

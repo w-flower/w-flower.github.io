@@ -2,6 +2,7 @@
 import { getCollection, render } from "astro:content";
 import Base from "../layouts/Base.astro";
 import { site } from "../site.config";
+import { copy } from "../copy";
 import { byDateDesc, fmtDate, isPublished } from "../lib/format";
 
 const posts = byDateDesc(
@@ -29,63 +30,63 @@ const microItems = await Promise.all(
 );
 
 const tags = [...new Set(posts.flatMap((p) => p.data.tags))];
-const statusText: Record<string, string> = {
-  seed: "刚记下",
-  growing: "在长",
-  evergreen: "已成熟",
-};
-const filler = [
-  "c++",
-  "数据结构",
-  "现代 c++",
-  "内存管理",
-  "算法",
-  "learn in public",
-  "keep writing",
-  "notes to self",
-];
-const marqueeItems = [...new Set([...tags, ...filler])].slice(0, 9);
+const marqueeItems = copy.marqueeExtra.length
+  ? [...new Set([...tags, ...copy.marqueeExtra])].slice(0, 9)
+  : tags;
 ---
 
 <Base>
   <section class="hero bg-grid" data-reveal>
     <div class="wrap hero-inner">
       <h1>
-        把想明白的事记下来，<br />
-        把没想明白的<em>也记下来</em>。
+        {copy.hero.line1}
+        <br />
+        {copy.hero.line2}
+        <em>{copy.hero.highlight}</em>
+        {copy.hero.tail}
       </h1>
       <p class="hero-sub">{site.author.bio}</p>
       <div class="hero-meta">
-        <span class="pill accent">{posts.length} 篇文章</span>
-        <span class="pill">{notes.length} 篇笔记</span>
-        <span class="pill">{snippets.length} 段代码</span>
-        <span class="pill">{micros.length} 条随笔</span>
+        <span class="pill accent">
+          {posts.length} {copy.stats.posts}
+        </span>
+        <span class="pill">
+          {notes.length} {copy.stats.notes}
+        </span>
+        <span class="pill">
+          {snippets.length} {copy.stats.snippets}
+        </span>
+        <span class="pill">
+          {micros.length} {copy.stats.micro}
+        </span>
       </div>
     </div>
   </section>
 
-  <div class="marquee">
-    <div class="marquee-track">
-      {
-        [0, 1, 2, 3].map(() =>
-          marqueeItems.map((t) => <span>{t}</span>)
-        )
-      }
-    </div>
-  </div>
+  {
+    marqueeItems.length > 0 && (
+      <div class="marquee">
+        <div class="marquee-track">
+          {[0, 1, 2, 3].map(() =>
+            marqueeItems.map((t) => <span>{t}</span>)
+          )}
+        </div>
+      </div>
+    )
+  }
 
   <div class="wrap">
     <section class="section" data-reveal>
       <div class="section-head">
-        <h2 class="section-title">文章 / Posts</h2>
-        <a class="section-more" href="/posts/">全部 →</a>
+        <h2 class="section-title">{copy.sections.posts}</h2>
+        <a class="section-more" href="/posts/">{copy.sections.more}</a>
       </div>
 
       <div class="bento">
         {
           recentPosts.length === 0 && (
             <p class="card-desc" style="grid-column:span 2;">
-              还没有文章。第一篇文章从一个你想不明白的问题开始。
+              {copy.empty.posts}
             </p>
           )
         }
@@ -112,8 +113,8 @@ const marqueeItems = [...new Set([...tags, ...filler])].slice(0, 9);
       recentNotes.length > 0 && (
         <section class="section" data-reveal>
           <div class="section-head">
-            <h2 class="section-title">笔记 / Notes</h2>
-            <a class="section-more" href="/notes/">全部 →</a>
+            <h2 class="section-title">{copy.sections.notes}</h2>
+            <a class="section-more" href="/notes/">{copy.sections.more}</a>
           </div>
           <div class="note-grid">
             {recentNotes.map((note) => (
@@ -122,7 +123,7 @@ const marqueeItems = [...new Set([...tags, ...filler])].slice(0, 9);
                 <h3 class="note-title">{note.data.title}</h3>
                 <div class="note-foot">
                   <span class={`dot ${note.data.status}`} />
-                  <span>{statusText[note.data.status]}</span>
+                  <span>{copy.noteStatus[note.data.status]}</span>
                   <span style="opacity:0.6">{fmtDate(note.data.date)}</span>
                 </div>
               </a>
@@ -136,8 +137,8 @@ const marqueeItems = [...new Set([...tags, ...filler])].slice(0, 9);
       microItems.length > 0 && (
         <section class="section" data-reveal>
           <div class="section-head">
-            <h2 class="section-title">随笔 / Micro</h2>
-            <a class="section-more" href="/micro/">全部 →</a>
+            <h2 class="section-title">{copy.sections.micro}</h2>
+            <a class="section-more" href="/micro/">{copy.sections.more}</a>
           </div>
           <div>
             {microItems.map((m) => (

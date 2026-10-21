@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { copy } from "../../copy";
 import { fmtDate, isPublished } from "../../lib/format";
 
 export async function getStaticPaths() {
@@ -12,12 +13,6 @@ export async function getStaticPaths() {
 
 const { note } = Astro.props;
 const { Content } = await render(note);
-
-const statusText: Record<string, string> = {
-  seed: "刚记下",
-  growing: "在长",
-  evergreen: "已成熟",
-};
 ---
 
 <Base title={note.data.title}>
@@ -26,7 +21,7 @@ const statusText: Record<string, string> = {
       <div class="article-meta" data-reveal>
         <span style="display:inline-flex;align-items:center;gap:8px;">
           <span class={`dot ${note.data.status}`} />
-          {statusText[note.data.status]}
+          {copy.noteStatus[note.data.status]}
         </span>
         <span class="bar"></span>
         <span>{note.data.course}</span>
@@ -41,6 +36,6 @@ const statusText: Record<string, string> = {
     <div class="prose" data-reveal>
       <Content />
     </div>
-    <a class="back-link" href="/notes/">← 返回笔记</a>
+    <a class="back-link" href="/notes/">{copy.back.notes}</a>
   </div>
 </Base>

@@ -1,5 +1,6 @@
 ---
 import { site } from "../site.config";
+import { copy } from "../copy";
 import "../styles/global.css";
 import SeasonalLine from "../components/SeasonalLine.astro";
 
@@ -42,7 +43,7 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
         <a class="brand" href="/" id="brand">{site.name}</a>
         <div class="nav-links">
           {
-            site.nav.map((item) => (
+            copy.nav.map((item) => (
               <a
                 href={item.href}
                 aria-current={path.startsWith(item.href) ? "page" : undefined}
@@ -55,7 +56,7 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
       </div>
     </nav>
 
-    <span id="secret" class="secret">你找到我了 / found me</span>
+    <span id="secret" class="secret">{copy.secret}</span>
 
     <main>
       <slot />

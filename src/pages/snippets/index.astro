@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { copy } from "../../copy";
 import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
 
 const snippets = byDateDesc(
@@ -8,11 +9,11 @@ const snippets = byDateDesc(
 );
 ---
 
-<Base title="代码">
+<Base title={copy.listPages.snippets.title}>
   <div class="page-head bg-grid">
     <div class="wrap">
-      <h1 class="page-title">代码</h1>
-      <p class="page-sub">{snippets.length} snippets</p>
+      <h1 class="page-title">{copy.listPages.snippets.title}</h1>
+      <p class="page-sub">{snippets.length} {copy.listPages.snippets.sub}</p>
     </div>
   </div>
 
@@ -28,9 +29,11 @@ const snippets = byDateDesc(
               <h2 class="note-title">{s.data.title}</h2>
               <div class="note-foot">
                 {s.data.run ? (
-                  <span style="color:var(--accent);">可运行 ↗</span>
+                  <span style="color:var(--accent);">
+                    {copy.snippet.runnable}
+                  </span>
                 ) : (
-                  <span>只读</span>
+                  <span>{copy.snippet.readonly}</span>
                 )}
               </div>
             </a>

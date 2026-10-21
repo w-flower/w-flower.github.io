@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from "astro:content";
 import Base from "../layouts/Base.astro";
+import { copy } from "../copy";
 import { byDateDesc, fmtDate, isPublished } from "../lib/format";
 
 const raw = byDateDesc(
@@ -22,11 +23,11 @@ for (const item of items) {
 }
 ---
 
-<Base title="随笔">
+<Base title={copy.listPages.micro.title}>
   <div class="page-head bg-grid">
     <div class="wrap">
-      <h1 class="page-title">随笔</h1>
-      <p class="page-sub">{items.length} notes to self</p>
+      <h1 class="page-title">{copy.listPages.micro.title}</h1>
+      <p class="page-sub">{items.length} {copy.listPages.micro.sub}</p>
     </div>
   </div>
 

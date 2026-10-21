@@ -1,20 +1,7 @@
 ---
-const month = new Date().getMonth() + 1;
+import { copy } from "../copy";
 
-const lines: Record<number, string> = {
-  1: "一年中最适合重新开始的一个月。",
-  2: "冷还没退，但天已经长了一点。",
-  3: "适合把冬天欠下的事补上。",
-  4: "墙角的树不知道自己在开花。",
-  5: "空气开始有味道了。",
-  6: "热起来之前的那几天最好。",
-  7: "慢一点，反正也干不了别的。",
-  8: "所有事情都悬着，这样也挺好。",
-  9: "开学，一切重新编号。",
-  10: "最好的季节，也是最容易分心的。",
-  11: "适合收尾，不适合开新坑。",
-  12: "把这一年剩下的都过完。",
-};
+const month = new Date().getMonth(); // 0-11
 ---
 
-<span class="seasonal">{lines[month]}</span>
+<span class="seasonal">{copy.monthly[month]}</span>

@@ -5,10 +5,6 @@ export function fmtDate(d: Date): string {
   return `${y}.${m}.${day}`;
 }
 
-export function fmtMonth(d: Date): string {
-  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
-}
-
 export function byDateDesc<T extends { data: { date: Date } }>(items: T[]): T[] {
   return [...items].sort(
     (a, b) => b.data.date.getTime() - a.data.date.getTime()

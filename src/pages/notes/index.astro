@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { copy } from "../../copy";
 import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
 
 const notes = byDateDesc(
@@ -14,27 +15,30 @@ for (const n of notes) {
   groups.get(key)!.push(n);
 }
 
-const statusText: Record<string, string> = {
-  seed: "刚记下",
-  growing: "在长",
-  evergreen: "已成熟",
-};
+const statusKeys = Object.keys(copy.noteStatus) as Array<
+  keyof typeof copy.noteStatus
+>;
 ---
 
-<Base title="笔记">
+<Base title={copy.listPages.notes.title}>
   <div class="page-head bg-grid">
     <div class="wrap">
-      <h1 class="page-title">笔记</h1>
-      <p class="page-sub">{notes.length} notes</p>
+      <h1 class="page-title">{copy.listPages.notes.title}</h1>
+      <p class="page-sub">{notes.length} {copy.listPages.notes.sub}</p>
     </div>
   </div>
 
   <div class="wrap">
     <section class="section" data-reveal>
       <div class="hero-meta" style="margin-bottom:8px;">
-        <span class="pill"><span class="dot seed" style="margin-right:7px;"></span>刚记下</span>
-        <span class="pill"><span class="dot growing" style="margin-right:7px;"></span>在长</span>
-        <span class="pill"><span class="dot evergreen" style="margin-right:7px;"></span>已成熟</span>
+        {
+          statusKeys.map((k) => (
+            <span class="pill">
+              <span class={`dot ${k}`} style="margin-right:7px;" />
+              {copy.noteStatus[k]}
+            </span>
+          ))
+        }
       </div>
 
       {
@@ -48,7 +52,7 @@ const statusText: Record<string, string> = {
                   <h2 class="note-title">{note.data.title}</h2>
                   <div class="note-foot">
                     <span class={`dot ${note.data.status}`} />
-                    <span>{statusText[note.data.status]}</span>
+                    <span>{copy.noteStatus[note.data.status]}</span>
                   </div>
                 </a>
               ))}

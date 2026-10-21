@@ -1,24 +1,19 @@
 ---
 import Base from "../layouts/Base.astro";
+import { copy } from "../copy";
 
-const excuses = [
-  "这个页面没被写出来，或者已经被删掉了。",
-  "可能是链接打错了，也可能是我把它改没了。",
-  "这条路通向一堵墙。",
-  "有些东西不存在，本身就是一种存在。",
-];
-
-const line = excuses[Math.floor(Math.random() * excuses.length)];
+const lines = copy.notFound.lines;
+const line = lines[Math.floor(Math.random() * lines.length)];
 ---
 
-<Base title="404">
+<Base title={copy.notFound.title}>
   <div class="wrap">
     <div class="notfound">
-      <p class="huge">404</p>
+      <p class="huge">{copy.notFound.title}</p>
       <p class="line" data-reveal>{line}</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;" data-reveal>
-        <a class="btn" href="/">回首页</a>
-        <a class="btn ghost" href="/micro/">逛逛随笔</a>
+        <a class="btn" href="/">{copy.notFound.home}</a>
+        <a class="btn ghost" href="/micro/">{copy.notFound.micro}</a>
       </div>
     </div>
   </div>

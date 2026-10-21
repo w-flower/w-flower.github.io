@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { copy } from "../../copy";
 import { fmtDate, isPublished } from "../../lib/format";
 
 export async function getStaticPaths() {
@@ -30,6 +31,6 @@ const { Content } = await render(post);
     <div class="prose" data-reveal>
       <Content />
     </div>
-    <a class="back-link" href="/posts/">← 返回文章</a>
+    <a class="back-link" href="/posts/">{copy.back.posts}</a>
   </div>
 </Base>

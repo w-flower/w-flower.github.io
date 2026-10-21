@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import { copy } from "../../copy";
 import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
 
 const posts = byDateDesc(
@@ -8,11 +9,11 @@ const posts = byDateDesc(
 );
 ---
 
-<Base title="文章">
+<Base title={copy.listPages.posts.title}>
   <div class="page-head bg-grid">
     <div class="wrap">
-      <h1 class="page-title">文章</h1>
-      <p class="page-sub">{posts.length} posts</p>
+      <h1 class="page-title">{copy.listPages.posts.title}</h1>
+      <p class="page-sub">{posts.length} {copy.listPages.posts.sub}</p>
     </div>
   </div>
 
@@ -22,7 +23,7 @@ const posts = byDateDesc(
         {
           posts.length === 0 && (
             <p class="card-desc" style="grid-column:span 2;">
-              还没有文章。
+              {copy.empty.posts}
             </p>
           )
         }
