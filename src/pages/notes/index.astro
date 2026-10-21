@@ -14,50 +14,48 @@ for (const n of notes) {
   groups.get(key)!.push(n);
 }
 
-const legend = [
-  { cls: "seed", text: "刚记下，还没消化" },
-  { cls: "growing", text: "补过例子，能讲明白" },
-  { cls: "evergreen", text: "反复验证过，能当手册查" },
-];
+const statusText: Record<string, string> = {
+  seed: "刚记下",
+  growing: "在长",
+  evergreen: "已成熟",
+};
 ---
 
 <Base title="笔记">
-  <h1 class="page-title">笔记</h1>
-  <p class="meta">{notes.length} 篇</p>
+  <div class="page-head bg-grid">
+    <div class="wrap">
+      <h1 class="page-title">笔记</h1>
+      <p class="page-sub">{notes.length} notes</p>
+    </div>
+  </div>
 
-  <p style="font-size:13px;color:var(--fg-faint);margin-bottom:40px;">
-    {
-      legend.map((l, i) => (
-        <span style="margin-right:18px;">
-          <span class={`dot ${l.cls}`} />
-          {l.text}
-        </span>
-      ))
-    }
-  </p>
+  <div class="wrap">
+    <section class="section" data-reveal>
+      <div class="hero-meta" style="margin-bottom:8px;">
+        <span class="pill"><span class="dot seed" style="margin-right:7px;"></span>刚记下</span>
+        <span class="pill"><span class="dot growing" style="margin-right:7px;"></span>在长</span>
+        <span class="pill"><span class="dot evergreen" style="margin-right:7px;"></span>已成熟</span>
+      </div>
 
-  {
-    [...groups.entries()].map(([course, items]) => (
-      <section style="margin-bottom:56px;">
-        <h2
-          style="font-family:var(--font-serif);font-size:16px;font-weight:400;color:var(--fg-muted);letter-spacing:0.08em;margin:0 0 4px;"
-        >
-          {course}
-        </h2>
-        <ul class="list">
-          {items.map((note) => (
-            <li>
-              <a href={`/notes/${note.id}/`}>
-                <span class="item-title">
-                  <span class={`dot ${note.data.status}`} />
-                  {note.data.title}
-                </span>
-                <span class="item-date">{fmtDate(note.data.date)}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    ))
-  }
+      {
+        [...groups.entries()].map(([course, items]) => (
+          <>
+            <div class="group-label">{course}</div>
+            <div class="note-grid">
+              {items.map((note) => (
+                <a class="note-card" href={`/notes/${note.id}/`}>
+                  <div class="note-course">{fmtDate(note.data.date)}</div>
+                  <h2 class="note-title">{note.data.title}</h2>
+                  <div class="note-foot">
+                    <span class={`dot ${note.data.status}`} />
+                    <span>{statusText[note.data.status]}</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </>
+        ))
+      }
+    </section>
+  </div>
 </Base>

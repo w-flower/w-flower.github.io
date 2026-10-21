@@ -45,6 +45,28 @@ author: { name: "DHua" }  // 署名
 
 全站引用它，改一处就够，不用搜整个项目。
 
+## 视觉
+
+深暖墨底 + 单一朱橙强调，Bento 卡片网格，**只有深色，没有浅色模式**（刻意的）。
+
+配色、字体、圆角全部集中在 `src/styles/global.css` 顶部：
+
+```css
+--background: #16110e;   /* 暖墨底 */
+--surface:    #201914;   /* 卡片面 */
+--ink:        #f5efe6;   /* 主文字 */
+--muted:      #bfb2a3;   /* 次要文字 */
+--line:       #3a302a;   /* 分隔线 */
+--accent:     #ff5a1f;   /* 朱橙，唯一强调色 */
+--radius-card: 18px;
+```
+
+想换强调色，只改 `--accent` 和 `--accent-soft`，全站跟着变。
+
+字体：`--font-display`（标题）、`--font-body`（正文）、`--font-mono`（日期/标签/代码）。默认用系统字体栈，不加载远程字体，国内打开不会卡。
+
+卡片悬停有跟随鼠标的光斑，滚动时内容渐现，都靠 `src/layouts/Base.astro` 里的一小段原生 JS，没有框架依赖。
+
 ## 怪元素
 
 同样在 `src/site.config.ts` 里：

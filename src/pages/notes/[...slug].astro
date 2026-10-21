@@ -21,19 +21,26 @@ const statusText: Record<string, string> = {
 ---
 
 <Base title={note.data.title}>
-  <article>
-    <h1 class="page-title">{note.data.title}</h1>
-    <p class="meta">
-      {note.data.course} · <span class={`dot ${note.data.status}`} />{
-        statusText[note.data.status]
-      }
-      · {fmtDate(note.data.date)}
-    </p>
-    <div class="prose">
+  <header class="article-head bg-grid">
+    <div class="wrap narrow">
+      <div class="article-meta" data-reveal>
+        <span style="display:inline-flex;align-items:center;gap:8px;">
+          <span class={`dot ${note.data.status}`} />
+          {statusText[note.data.status]}
+        </span>
+        <span class="bar"></span>
+        <span>{note.data.course}</span>
+        <span class="bar"></span>
+        <span>{fmtDate(note.data.date)}</span>
+      </div>
+      <h1 class="article-title" data-reveal>{note.data.title}</h1>
+    </div>
+  </header>
+
+  <div class="wrap narrow">
+    <div class="prose" data-reveal>
       <Content />
     </div>
-    <p style="margin-top:64px;font-size:13px;color:var(--fg-faint);">
-      <a href="/notes/" style="border-bottom-color:var(--line);">← 返回笔记</a>
-    </p>
-  </article>
+    <a class="back-link" href="/notes/">← 返回笔记</a>
+  </div>
 </Base>

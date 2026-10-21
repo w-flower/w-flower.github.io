@@ -1,6 +1,6 @@
 ---
 import { getCollection, render } from "astro:content";
-import Micro from "../layouts/Micro.astro";
+import Base from "../layouts/Base.astro";
 import { byDateDesc, fmtDate, isPublished } from "../lib/format";
 
 const raw = byDateDesc(
@@ -22,27 +22,31 @@ for (const item of items) {
 }
 ---
 
-<Micro>
-  {
-    [...groups.entries()].map(([year, list]) => (
-      <>
-        <p
-          style="font-size:12px;color:var(--fg-faint);letter-spacing:0.2em;margin:48px 0 0;"
-        >
-          {year}
-        </p>
-        {list.map((item) => (
-          <div class="stream-item">
-            <div class="stream-date">{fmtDate(item.data.date)}</div>
-            <div class="stream-body">
-              <item.Content />
-            </div>
-          </div>
-        ))}
-      </>
-    ))
-  }
-  <p style="margin-top:72px;font-size:12px;color:var(--fg-faint);">
-    共 {items.length} 条
-  </p>
-</Micro>
+<Base title="随笔">
+  <div class="page-head bg-grid">
+    <div class="wrap">
+      <h1 class="page-title">随笔</h1>
+      <p class="page-sub">{items.length} notes to self</p>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="stream">
+      {
+        [...groups.entries()].map(([year, list]) => (
+          <>
+            <div class="stream-year">{year}</div>
+            {list.map((item) => (
+              <div class="stream-item" data-reveal>
+                <div class="stream-date">{fmtDate(item.data.date)}</div>
+                <div class="stream-body">
+                  <item.Content />
+                </div>
+              </div>
+            ))}
+          </>
+        ))
+      }
+    </div>
+  </div>
+</Base>

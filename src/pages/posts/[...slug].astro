@@ -15,14 +15,21 @@ const { Content } = await render(post);
 ---
 
 <Base title={post.data.title} description={post.data.summary}>
-  <article>
-    <h1 class="page-title">{post.data.title}</h1>
-    <p class="meta">
-      {fmtDate(post.data.date)}
-      {post.data.tags.map((t) => <span class="tag">#{t}</span>)}
-    </p>
-    <div class="prose">
+  <header class="article-head bg-grid">
+    <div class="wrap narrow">
+      <div class="article-meta" data-reveal>
+        <span>{fmtDate(post.data.date)}</span>
+        {post.data.tags.length > 0 && <span class="bar"></span>}
+        <span>{post.data.tags.join(" · ")}</span>
+      </div>
+      <h1 class="article-title" data-reveal>{post.data.title}</h1>
+    </div>
+  </header>
+
+  <div class="wrap narrow">
+    <div class="prose" data-reveal>
       <Content />
     </div>
-  </article>
+    <a class="back-link" href="/posts/">← 返回文章</a>
+  </div>
 </Base>

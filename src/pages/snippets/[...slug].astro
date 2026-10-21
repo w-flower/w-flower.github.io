@@ -18,44 +18,53 @@ const { Content } = await render(snippet);
 ---
 
 <Base title={snippet.data.title}>
-  <article>
-    <h1 class="page-title">{snippet.data.title}</h1>
-    <p class="meta">
-      {snippet.data.std} · {fmtDate(snippet.data.date)}
-    </p>
+  <header class="article-head bg-grid">
+    <div class="wrap narrow">
+      <div class="article-meta" data-reveal>
+        <span>{snippet.data.std}</span>
+        <span class="bar"></span>
+        <span>{fmtDate(snippet.data.date)}</span>
+        {
+          snippet.data.run && (
+            <>
+              <span class="bar"></span>
+              <a
+                href={snippet.data.run}
+                target="_blank"
+                rel="noopener"
+                style="color:var(--accent);"
+              >
+                在 CE 打开 ↗
+              </a>
+            </>
+          )
+        }
+      </div>
+      <h1 class="article-title" data-reveal>{snippet.data.title}</h1>
+    </div>
+  </header>
 
-    {
-      snippet.data.run && (
-        <p style="margin:-16px 0 40px;">
-          <a
-            href={snippet.data.run}
-            target="_blank"
-            rel="noopener"
-            style="font-size:14px;border-bottom-color:var(--accent);"
-          >
-            在 Compiler Explorer 里打开 →
-          </a>
-        </p>
-      )
-    }
-
-    <div class="prose">
+  <div class="wrap narrow">
+    <div class="prose" data-reveal>
       <Content />
     </div>
 
     {
       snippet.data.repo && (
-        <p style="margin-top:40px;font-size:14px;color:var(--fg-muted);">
+        <p style="margin-top:36px;font-size:14px;color:var(--muted);">
           完整文件：
-          <a href={snippet.data.repo} target="_blank" rel="noopener">
-            GitHub
+          <a
+            href={snippet.data.repo}
+            target="_blank"
+            rel="noopener"
+            style="color:var(--accent-soft);"
+          >
+            GitHub ↗
           </a>
         </p>
       )
     }
 
-    <p style="margin-top:64px;font-size:13px;color:var(--fg-faint);">
-      <a href="/snippets/" style="border-bottom-color:var(--line);">← 返回代码</a>
-    </p>
-  </article>
+    <a class="back-link" href="/snippets/">← 返回代码</a>
+  </div>
 </Base>

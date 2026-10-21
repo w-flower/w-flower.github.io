@@ -9,20 +9,40 @@ const posts = byDateDesc(
 ---
 
 <Base title="文章">
-  <h1 class="page-title">文章</h1>
-  <p class="meta">{posts.length} 篇</p>
+  <div class="page-head bg-grid">
+    <div class="wrap">
+      <h1 class="page-title">文章</h1>
+      <p class="page-sub">{posts.length} posts</p>
+    </div>
+  </div>
 
-  <ul class="list">
-    {
-      posts.map((post) => (
-        <li>
-          <a href={`/posts/${post.id}/`}>
-            <span class="item-title">{post.data.title}</span>
-            <span class="item-sum">{post.data.summary}</span>
-            <span class="item-date">{fmtDate(post.data.date)}</span>
-          </a>
-        </li>
-      ))
-    }
-  </ul>
+  <div class="wrap">
+    <section class="section" data-reveal>
+      <div class="bento">
+        {
+          posts.length === 0 && (
+            <p class="card-desc" style="grid-column:span 2;">
+              还没有文章。
+            </p>
+          )
+        }
+        {
+          posts.map((post, i) => (
+            <a
+              class={i === 0 ? "card wide" : "card"}
+              href={`/posts/${post.id}/`}
+            >
+              <div class="card-kicker">
+                <span>{fmtDate(post.data.date)}</span>
+                {post.data.tags.length > 0 && <span class="sep">/</span>}
+                <span class="dim">{post.data.tags.join(" · ")}</span>
+              </div>
+              <h2 class="card-title">{post.data.title}</h2>
+              <p class="card-desc">{post.data.summary}</p>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </div>
 </Base>

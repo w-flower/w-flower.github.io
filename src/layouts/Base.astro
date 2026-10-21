@@ -22,6 +22,7 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#16110e" />
 
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
@@ -31,12 +32,15 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
 
     <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script is:inline>
+      document.documentElement.classList.add("js-ready");
+    </script>
   </head>
   <body>
-    <div class="wrap">
-      <header class="site-head">
+    <nav class="nav" id="nav">
+      <div class="wrap nav-inner">
         <a class="brand" href="/" id="brand">{site.name}</a>
-        <nav class="site-nav">
+        <div class="nav-links">
           {
             site.nav.map((item) => (
               <a
@@ -47,38 +51,84 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
               </a>
             ))
           }
-        </nav>
-      </header>
+        </div>
+      </div>
+    </nav>
 
-      <div id="secret" class="secret">你找到我了。这里还没想好放什么。</div>
+    <span id="secret" class="secret">你找到我了 / found me</span>
 
-      <main class={site.quirks.introReveal ? "reveal" : ""}>
-        <slot />
-      </main>
+    <main>
+      <slot />
+    </main>
 
-      <footer class="site-foot">
-        <span>{site.author.name} · {new Date().getFullYear()}</span>
+    <footer class="footer">
+      <div class="wrap footer-inner">
+        <div class="footer-note">
+          <strong>{site.author.name}</strong><br />
+          {new Date().getFullYear()} · built with astro
+        </div>
         {site.quirks.seasonalLine && <SeasonalLine />}
-      </footer>
-    </div>
+      </div>
+    </footer>
 
-    {
-      site.quirks.logoSecret && (
-        <script>
-          let hits = 0;
-          let timer: number | undefined;
-          document.getElementById("brand")?.addEventListener("click", (e) => {
-            hits += 1;
-            window.clearTimeout(timer);
-            timer = window.setTimeout(() => (hits = 0), 900);
-            if (hits >= 5) {
-              e.preventDefault();
-              hits = 0;
-              document.getElementById("secret")?.classList.add("on");
+    <script>
+      const nav = document.getElementById("nav");
+      const onScroll = () => {
+        nav?.classList.toggle("scrolled", window.scrollY > 8);
+      };
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+
+      const targets = document.querySelectorAll("[data-reveal]");
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add("in");
+                io.unobserve(e.target);
+              }
             }
-          });
-        </script>
-      )
-    }
+          },
+          { rootMargin: "0px 0px -8% 0px", threshold: 0.05 }
+        );
+        targets.forEach((el) => io.observe(el));
+      } else {
+        targets.forEach((el) => el.classList.add("in"));
+      }
+
+      document.addEventListener(
+        "pointermove",
+        (e) => {
+          const card = (e.target as Element)?.closest?.(".card, .note-card");
+          if (!card) return;
+          const r = (card as HTMLElement).getBoundingClientRect();
+          (card as HTMLElement).style.setProperty(
+            "--mx",
+            `${e.clientX - r.left}px`
+          );
+          (card as HTMLElement).style.setProperty(
+            "--my",
+            `${e.clientY - r.top}px`
+          );
+        },
+        { passive: true }
+      );
+
+      let hits = 0;
+      let timer: number | undefined;
+      document.getElementById("brand")?.addEventListener("click", (e) => {
+        hits += 1;
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => (hits = 0), 900);
+        if (hits >= 5) {
+          e.preventDefault();
+          hits = 0;
+          const s = document.getElementById("secret");
+          s?.classList.add("on");
+          window.setTimeout(() => s?.classList.remove("on"), 3200);
+        }
+      });
+    </script>
   </body>
 </html>

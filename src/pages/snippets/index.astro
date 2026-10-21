@@ -9,21 +9,34 @@ const snippets = byDateDesc(
 ---
 
 <Base title="代码">
-  <h1 class="page-title">代码</h1>
-  <p class="meta">{snippets.length} 段</p>
+  <div class="page-head bg-grid">
+    <div class="wrap">
+      <h1 class="page-title">代码</h1>
+      <p class="page-sub">{snippets.length} snippets</p>
+    </div>
+  </div>
 
-  <ul class="list">
-    {
-      snippets.map((s) => (
-        <li>
-          <a href={`/snippets/${s.id}/`}>
-            <span class="item-title">{s.data.title}</span>
-            <span class="item-date">
-              {s.data.std} · {fmtDate(s.data.date)}
-            </span>
-          </a>
-        </li>
-      ))
-    }
-  </ul>
+  <div class="wrap">
+    <section class="section" data-reveal>
+      <div class="note-grid">
+        {
+          snippets.map((s) => (
+            <a class="note-card" href={`/snippets/${s.id}/`}>
+              <div class="note-course">
+                {s.data.std} · {fmtDate(s.data.date)}
+              </div>
+              <h2 class="note-title">{s.data.title}</h2>
+              <div class="note-foot">
+                {s.data.run ? (
+                  <span style="color:var(--accent);">可运行 ↗</span>
+                ) : (
+                  <span>只读</span>
+                )}
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </div>
 </Base>
