@@ -1,0 +1,84 @@
+---
+import { site } from "../site.config";
+import "../styles/global.css";
+import SeasonalLine from "../components/SeasonalLine.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description = site.description } = Astro.props;
+const pageTitle = title ? `${title} · ${site.name}` : site.name;
+const path = Astro.url.pathname;
+const canonical = new URL(path, Astro.site ?? site.url).toString();
+---
+
+<!doctype html>
+<html lang={site.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site-head">
+        <a class="brand" href="/" id="brand">{site.name}</a>
+        <nav class="site-nav">
+          {
+            site.nav.map((item) => (
+              <a
+                href={item.href}
+                aria-current={path.startsWith(item.href) ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            ))
+          }
+        </nav>
+      </header>
+
+      <div id="secret" class="secret">你找到我了。这里还没想好放什么。</div>
+
+      <main class={site.quirks.introReveal ? "reveal" : ""}>
+        <slot />
+      </main>
+
+      <footer class="site-foot">
+        <span>{site.author.name} · {new Date().getFullYear()}</span>
+        {site.quirks.seasonalLine && <SeasonalLine />}
+      </footer>
+    </div>
+
+    {
+      site.quirks.logoSecret && (
+        <script>
+          let hits = 0;
+          let timer: number | undefined;
+          document.getElementById("brand")?.addEventListener("click", (e) => {
+            hits += 1;
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => (hits = 0), 900);
+            if (hits >= 5) {
+              e.preventDefault();
+              hits = 0;
+              document.getElementById("secret")?.classList.add("on");
+            }
+          });
+        </script>
+      )
+    }
+  </body>
+</html>

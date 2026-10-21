@@ -1,0 +1,48 @@
+---
+import { getCollection, render } from "astro:content";
+import Micro from "../layouts/Micro.astro";
+import { byDateDesc, fmtDate, isPublished } from "../lib/format";
+
+const raw = byDateDesc(
+  (await getCollection("micro")).filter((m) => isPublished(m.data))
+);
+
+const items = await Promise.all(
+  raw.map(async (m) => ({
+    data: m.data,
+    Content: (await render(m)).Content,
+  }))
+);
+
+const groups = new Map<string, typeof items>();
+for (const item of items) {
+  const key = String(item.data.date.getFullYear());
+  if (!groups.has(key)) groups.set(key, []);
+  groups.get(key)!.push(item);
+}
+---
+
+<Micro>
+  {
+    [...groups.entries()].map(([year, list]) => (
+      <>
+        <p
+          style="font-size:12px;color:var(--fg-faint);letter-spacing:0.2em;margin:48px 0 0;"
+        >
+          {year}
+        </p>
+        {list.map((item) => (
+          <div class="stream-item">
+            <div class="stream-date">{fmtDate(item.data.date)}</div>
+            <div class="stream-body">
+              <item.Content />
+            </div>
+          </div>
+        ))}
+      </>
+    ))
+  }
+  <p style="margin-top:72px;font-size:12px;color:var(--fg-faint);">
+    共 {items.length} 条
+  </p>
+</Micro>

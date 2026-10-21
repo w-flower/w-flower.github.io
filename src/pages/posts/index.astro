@@ -1,0 +1,28 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
+
+const posts = byDateDesc(
+  (await getCollection("posts")).filter((p) => isPublished(p.data))
+);
+---
+
+<Base title="文章">
+  <h1 class="page-title">文章</h1>
+  <p class="meta">{posts.length} 篇</p>
+
+  <ul class="list">
+    {
+      posts.map((post) => (
+        <li>
+          <a href={`/posts/${post.id}/`}>
+            <span class="item-title">{post.data.title}</span>
+            <span class="item-sum">{post.data.summary}</span>
+            <span class="item-date">{fmtDate(post.data.date)}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</Base>

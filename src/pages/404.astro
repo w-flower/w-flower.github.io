@@ -1,0 +1,33 @@
+---
+import Base from "../layouts/Base.astro";
+import { site } from "../site.config";
+
+const excuses = [
+  "这个页面还没被写出来，或者它已经被删掉了。",
+  "可能是链接打错了，也可能是我把它改没了。",
+  "这条路通向一堵墙。",
+  "有些东西不存在，本身就是一种存在。",
+];
+
+const line = excuses[Math.floor(Math.random() * excuses.length)];
+---
+
+<Base title="404">
+  <div class="notfound">
+    <p class="big">404</p>
+    <p
+      style="font-family:var(--font-serif);font-size:18px;color:var(--fg-muted);margin:16px 0 40px;max-width:420px;"
+    >
+      {line}
+    </p>
+    <p style="font-size:14px;">
+      <a href="/" style="border-bottom-color:var(--accent);">回首页</a>
+      <span style="color:var(--fg-faint);margin:0 12px;">/</span>
+      <a href="/micro/" style="border-bottom-color:var(--accent);">逛逛随笔</a>
+    </p>
+  </div>
+
+  <p style="margin-top:80px;font-size:12px;color:var(--fg-faint);letter-spacing:0.1em;">
+    {site.name}
+  </p>
+</Base>

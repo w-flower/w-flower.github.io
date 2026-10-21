@@ -1,0 +1,98 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../layouts/Base.astro";
+import { site } from "../site.config";
+import { byDateDesc, fmtDate, isPublished } from "../lib/format";
+
+const posts = byDateDesc(
+  (await getCollection("posts")).filter((p) => isPublished(p.data))
+);
+const notes = byDateDesc(
+  (await getCollection("notes")).filter((p) => isPublished(p.data))
+);
+const micros = byDateDesc(
+  (await getCollection("micro")).filter((p) => isPublished(p.data))
+);
+
+const recentNotes = notes.slice(0, 4);
+const latestMicro = micros[0];
+---
+
+<Base>
+  <section style="padding:8px 0 56px;">
+    <h1
+      style="font-family:var(--font-serif);font-size:30px;font-weight:400;line-height:1.5;margin:0 0 16px;letter-spacing:0.01em;"
+    >
+      {site.tagline}
+    </h1>
+    <p style="color:var(--fg-muted);font-size:15px;margin:0;">
+      {site.author.bio}
+    </p>
+  </section>
+
+  <section>
+    <h2 class="meta" style="margin-bottom:0;letter-spacing:0.12em;">文章</h2>
+    <ul class="list">
+      {
+        posts.length === 0 && <li style="color:var(--fg-faint);">还没有。</li>
+      }
+      {
+        posts.map((post) => (
+          <li>
+            <a href={`/posts/${post.id}/`}>
+              <span class="item-title">{post.data.title}</span>
+              <span class="item-sum">{post.data.summary}</span>
+              <span class="item-date">{fmtDate(post.data.date)}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  {
+    recentNotes.length > 0 && (
+      <section style="margin-top:64px;">
+        <h2 class="meta" style="margin-bottom:0;letter-spacing:0.12em;">
+          最近笔记
+        </h2>
+        <ul class="list">
+          {recentNotes.map((note) => (
+            <li>
+              <a href={`/notes/${note.id}/`}>
+                <span class="item-title">
+                  <span class={`dot ${note.data.status}`} />
+                  {note.data.title}
+                </span>
+                <span class="item-date">
+                  {note.data.course} · {fmtDate(note.data.date)}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p style="font-size:14px;margin-top:16px;">
+          <a href="/notes/" style="border-bottom-color:var(--line);">全部笔记 →</a>
+        </p>
+      </section>
+    )
+  }
+
+  {
+    latestMicro && (
+      <section style="margin-top:64px;">
+        <h2 class="meta" style="margin-bottom:0;letter-spacing:0.12em;">
+          随笔
+        </h2>
+        <p
+          style="font-family:var(--font-serif);color:var(--fg-muted);margin:20px 0 0;"
+        >
+          最近更新于 {fmtDate(latestMicro.data.date)}，共 {micros.length} 条。
+        </p>
+        <p style="font-size:14px;margin-top:12px;">
+          <a href="/micro/" style="border-bottom-color:var(--line);">全部随笔 →</a>
+        </p>
+      </section>
+    )
+  }
+</Base>

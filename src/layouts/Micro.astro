@@ -1,0 +1,29 @@
+---
+import { site } from "../site.config";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+}
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang={site.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title ? `${title} · ${site.name}` : `随笔 · ${site.name}`}</title>
+    <meta name="description" content={site.description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
+  </head>
+  <body>
+    <div class="stream">
+      <p style="font-size:13px;margin:0 0 32px;">
+        <a href="/" style="border:0;color:var(--fg-faint);">← {site.name}</a>
+      </p>
+      <slot />
+    </div>
+  </body>
+</html>

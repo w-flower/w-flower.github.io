@@ -1,0 +1,63 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
+
+const notes = byDateDesc(
+  (await getCollection("notes")).filter((n) => isPublished(n.data))
+);
+
+const groups = new Map<string, typeof notes>();
+for (const n of notes) {
+  const key = n.data.course;
+  if (!groups.has(key)) groups.set(key, []);
+  groups.get(key)!.push(n);
+}
+
+const legend = [
+  { cls: "seed", text: "刚记下，还没消化" },
+  { cls: "growing", text: "补过例子，能讲明白" },
+  { cls: "evergreen", text: "反复验证过，能当手册查" },
+];
+---
+
+<Base title="笔记">
+  <h1 class="page-title">笔记</h1>
+  <p class="meta">{notes.length} 篇</p>
+
+  <p style="font-size:13px;color:var(--fg-faint);margin-bottom:40px;">
+    {
+      legend.map((l, i) => (
+        <span style="margin-right:18px;">
+          <span class={`dot ${l.cls}`} />
+          {l.text}
+        </span>
+      ))
+    }
+  </p>
+
+  {
+    [...groups.entries()].map(([course, items]) => (
+      <section style="margin-bottom:56px;">
+        <h2
+          style="font-family:var(--font-serif);font-size:16px;font-weight:400;color:var(--fg-muted);letter-spacing:0.08em;margin:0 0 4px;"
+        >
+          {course}
+        </h2>
+        <ul class="list">
+          {items.map((note) => (
+            <li>
+              <a href={`/notes/${note.id}/`}>
+                <span class="item-title">
+                  <span class={`dot ${note.data.status}`} />
+                  {note.data.title}
+                </span>
+                <span class="item-date">{fmtDate(note.data.date)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))
+  }
+</Base>

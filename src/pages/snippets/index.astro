@@ -1,0 +1,29 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
+
+const snippets = byDateDesc(
+  (await getCollection("snippets")).filter((s) => isPublished(s.data))
+);
+---
+
+<Base title="代码">
+  <h1 class="page-title">代码</h1>
+  <p class="meta">{snippets.length} 段</p>
+
+  <ul class="list">
+    {
+      snippets.map((s) => (
+        <li>
+          <a href={`/snippets/${s.id}/`}>
+            <span class="item-title">{s.data.title}</span>
+            <span class="item-date">
+              {s.data.std} · {fmtDate(s.data.date)}
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</Base>
