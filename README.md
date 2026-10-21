@@ -2,12 +2,19 @@
 
 Astro 静态站。内容全部是 Markdown，一换框架内容不用动。
 
-## 跑起来
+## 日常使用
+
+- 双击 **`start.cmd`** —— 启动本地预览，浏览器自动打开
+- 双击 **`save.cmd`** —— 把改动存档
+
+完整教程见 **[写作指南.md](./写作指南.md)**。
+
+## 命令（不想双击时用）
 
 ```bash
-npm install     # 第一次
-npm run dev     # 本地预览 http://localhost:4321
-npm run build   # 构建到 dist/
+npm install                                   # 第一次
+npm run dev -- --host 0.0.0.0 --port 4321     # 本地预览，手机同 Wi-Fi 也能看
+npm run build                                 # 构建到 dist/
 ```
 
 ## 写东西

@@ -37,11 +37,9 @@ if (!status) {
 }
 
 const changed = status.split("\n").length;
-const stamp = new Date()
-  .toISOString()
-  .slice(0, 16)
-  .replace("T", " ")
-  .replace(/:/g, "-");
+const now = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
 run(git, ["add", "-A"]);
 const commit = spawnSync(
