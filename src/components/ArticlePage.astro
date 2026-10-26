@@ -17,6 +17,7 @@ import { copy } from "../copy";
 import { fmtDate } from "../lib/format";
 import { splitWords } from "../lib/typein";
 import ReactBar from "./ReactBar.astro";
+import Comments from "./Comments.astro";
 /* 数学公式样式（KaTeX）。只在有正文的详情页加载，首页/归档不需要。 */
 import "katex/dist/katex.min.css";
 
@@ -43,6 +44,12 @@ interface Props {
   headings?: { depth: number; slug: string; text: string }[];
   /** 底部「相关推荐」：同一课程 / 同一标签的其它篇 */
   related?: RelatedLink[];
+  /** 连载序号导航（笔记页用）：01→02→…→13→附录 A/B */
+  series?: { n: string; title: string; href: string }[];
+  /** 当前篇在 series 里的下标，-1 表示不属于任何连载 */
+  curIdx?: number;
+  /** 是否显示评论区（配置了后端才真的渲染，见 site.config.ts） */
+  comments?: boolean;
   backHref: string;
   backLabel: string;
 }
@@ -56,9 +63,18 @@ const {
   tags = [],
   headings = [],
   related = [],
+  series = [],
+  curIdx = -1,
+  comments = false,
   backHref,
   backLabel,
 } = Astro.props;
+
+/* 上一篇 / 下一篇。只有真的在连载里（curIdx >= 0）才算得出来，
+   单篇文章（posts / snippets）不显示任何连载 UI。 */
+const inSeries = curIdx >= 0 && series.length > 1;
+const prevOne = inSeries ? series[curIdx - 1] ?? null : null;
+const nextOne = inSeries ? series[curIdx + 1] ?? null : null;
 
 /* 目录只收 h2 / h3，最多 12 条，再长就不是目录是正文了 */
 const toc = headings.filter((h) => h.depth === 2 || h.depth === 3).slice(0, 12);
@@ -213,11 +229,89 @@ const titleLate = titleWords.filter((w) => w.i >= 0).length > 18;
         }
       </div>
 
+      {
+        /* 连载轨道：一眼看到自己在第几讲，点数字直接跳。
+           放在标题下面而不是文末 —— 读完一节想接着看下一节，
+           这个念头出现在「读到一半」，不是在滚到底之后。 */
+        inSeries && (
+          <nav class="seq-rail" aria-label={copy.doc.seqAria}>
+            <a
+              class="seq-step"
+              href={prevOne ? prevOne.href : undefined}
+              aria-disabled={prevOne ? "false" : "true"}
+              aria-label={copy.doc.prev}
+              data-seq-prev
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <ol class="seq-list">
+              {series.map((s, i) => (
+                <li>
+                  <a
+                    class:list={["seq-n", { on: i === curIdx, done: i < curIdx }]}
+                    href={s.href}
+                    title={s.title}
+                    aria-current={i === curIdx ? "page" : undefined}
+                  >
+                    {s.n}
+                  </a>
+                </li>
+              ))}
+            </ol>
+            <a
+              class="seq-step"
+              href={nextOne ? nextOne.href : undefined}
+              aria-disabled={nextOne ? "false" : "true"}
+              aria-label={copy.doc.next}
+              data-seq-next
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <span class="seq-count">
+              {copy.doc.seqCount
+                .replace("{i}", String(curIdx + 1))
+                .replace("{n}", String(series.length))}
+            </span>
+          </nav>
+        )
+      }
+
       <div class="prose">
         <slot />
       </div>
 
       <ReactBar url={Astro.url.pathname} />
+
+      {
+        /* 读到底了，给一个「接着往下看」的出口。
+           这是「上一篇/下一篇」正式的落点；上面那条轨道负责随时跳。 */
+        inSeries && (prevOne || nextOne) && (
+          <nav class="seq-foot" aria-label={copy.doc.seqAria}>
+            {prevOne ? (
+              <a class="seq-card prev" href={prevOne.href} rel="prev">
+                <span class="seq-card-k">{copy.doc.prev}</span>
+                <span class="seq-card-n">{prevOne.n}</span>
+                <span class="seq-card-t">{prevOne.title}</span>
+              </a>
+            ) : (
+              <span class="seq-card ghost" />
+            )}
+            {nextOne ? (
+              <a class="seq-card next" href={nextOne.href} rel="next">
+                <span class="seq-card-k">{copy.doc.next}</span>
+                <span class="seq-card-n">{nextOne.n}</span>
+                <span class="seq-card-t">{nextOne.title}</span>
+              </a>
+            ) : (
+              <span class="seq-card ghost" />
+            )}
+          </nav>
+        )
+      }
 
       {
         related.length > 0 && (
@@ -242,6 +336,8 @@ const titleLate = titleWords.filter((w) => w.i >= 0).length > 18;
         )
       }
 
+      {comments && <Comments slug={Astro.url.pathname} />}
+
       <a class="back-link" href={backHref}>{backLabel}</a>
     </main>
 
@@ -263,6 +359,19 @@ const titleLate = titleWords.filter((w) => w.i >= 0).length > 18;
               ))
             }
           </ol>
+          {
+            /* 目录栏跟着滚，正好当「下一篇」的常驻入口：
+               读到任何一段，右下角都能走，不用滚到文末。 */
+            nextOne && (
+              <a class="toc-next" href={nextOne.href} rel="next">
+                <span class="toc-next-k">{copy.doc.next}</span>
+                <span class="toc-next-n">{nextOne.n}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </a>
+            )
+          }
         </aside>
       )
     }

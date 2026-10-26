@@ -6,148 +6,18 @@
  *  抄 GitHub / VS Code 的命令面板。回答的是「我现在想干什么」，
  *  而不是「我想搜什么」——所以它同时管搜索和跳转。
  *
- *  为什么值得做：
- *  列表页的搜索框只能搜当前这一页的卡片。文章多了以后，
- *  「记得写过但想不起在哪篇」是常态，这时候需要的是全站搜索 + 直接跳。
+ *  索引从哪来：
+ *    构建期产出的 /search-index.json（全文，每篇 4000–8000 字全在里面）。
+ *    第一次打开面板时拉一次，之后在内存里做子串匹配。
+ *    以前是把索引内联进每页 HTML，为了不撑体积只能截到 400 字符，
+ *    等于只搜得到标题和开头一段 —— 用户反馈「搜索有跟没有一样」就是这个。
  *
  *  和原搜索框共存，不替代：
- *    /    → 搜本页卡片（已在 ContentList 里）
+ *    /    → 搜本页卡片（在 ContentList 里，同一份索引）
  *    ⌘K   → 搜全站 + 跳转（这里）
- *  两个键不冲突，鼠标用户点面板右下角的按钮也能唤起。
- *
- *  索引数据在构建期一次性算好内联进页面，不额外发请求。
- *  内容量到几百篇之前，这比任何客户端索引方案都快且简单。
  * ============================================================
  */
-import { getCollection } from "astro:content";
 import { copy } from "../copy";
-import { byDateDesc, isPublished } from "../lib/format";
-
-interface Row {
-  href: string;
-  title: string;
-  kind: string;
-  label: string;
-  color: string;
-  sub: string;
-  /** 小写全文，供匹配用 */
-  q: string;
-}
-
-const metaInfo: Record<string, { label: string; color: string }> = {
-  posts: { label: copy.kinds.posts, color: "#378ADD" },
-  notes: { label: copy.kinds.notes, color: "#5DCAA5" },
-  snippets: { label: copy.kinds.snippets, color: "#EF9F27" },
-  micro: { label: copy.kinds.micro, color: "#D4537E" },
-};
-
-const plain = (s = "") =>
-  s
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\s*[-*>+]\s+/gm, "")
-    .replace(/[*_`~]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const bodyOf = (e: unknown) => plain((e as { body?: string }).body ?? "");
-
-const rows: Row[] = [];
-
-for (const p of byDateDesc(
-  (await getCollection("posts")).filter((x) => isPublished(x.data))
-)) {
-  const b = bodyOf(p);
-  rows.push({
-    href: `/posts/${p.id}/`,
-    title: p.data.title,
-    kind: "posts",
-    ...metaInfo.posts,
-    sub: p.data.summary || b.slice(0, 70),
-    q: `${p.data.title} ${p.data.summary} ${p.data.tags.join(" ")} ${b}`.toLowerCase(),
-  });
-}
-for (const n of byDateDesc(
-  (await getCollection("notes")).filter((x) => isPublished(x.data))
-)) {
-  const b = bodyOf(n);
-  rows.push({
-    href: `/notes/${n.id}/`,
-    title: n.data.title,
-    kind: "notes",
-    ...metaInfo.notes,
-    sub: n.data.course,
-    q: `${n.data.title} ${n.data.course} ${b}`.toLowerCase(),
-  });
-}
-for (const s of byDateDesc(
-  (await getCollection("snippets")).filter((x) => isPublished(x.data))
-)) {
-  const b = bodyOf(s);
-  rows.push({
-    href: `/snippets/${s.id}/`,
-    title: s.data.title,
-    kind: "snippets",
-    ...metaInfo.snippets,
-    sub: s.data.std,
-    q: `${s.data.title} ${s.data.std} ${s.data.tags.join(" ")} ${b}`.toLowerCase(),
-  });
-}
-for (const m of byDateDesc(
-  (await getCollection("micro")).filter((x) => isPublished(x.data))
-)) {
-  const b = bodyOf(m);
-  rows.push({
-    href: "/micro/",
-    title: b.slice(0, 40) || "随笔",
-    kind: "micro",
-    ...metaInfo.micro,
-    sub: m.data.mood ?? "",
-    /* 随笔没有链接，只能跳到随笔列表，所以 q 里不带 href 区分 */
-    q: `${b} ${m.data.mood ?? ""}`.toLowerCase(),
-  });
-}
-
-/* 常驻操作。输入里出现这些词时也参与匹配 */
-const actions = [
-  { label: copy.palette.actions.home, href: "/", q: "首页 home 主页 index" },
-  { label: copy.palette.actions.notes, href: "/notes/", q: "笔记 notes 学习" },
-  {
-    label: copy.palette.actions.snippets,
-    href: "/snippets/",
-    q: "代码 snippets code 运行",
-  },
-  { label: copy.palette.actions.micro, href: "/micro/", q: "随笔 micro 想法" },
-  { label: copy.palette.actions.archive, href: "/archive/", q: "归档 archive 全部" },
-  { label: copy.palette.actions.about, href: "/about/", q: "关于 about 简介" },
-  { label: copy.palette.actions.danmaku, href: "/danmaku/", q: "弹幕 danmaku 彩蛋" },
-  { label: copy.palette.actions.rss, href: "/rss.xml", q: "rss 订阅 feed" },
-];
-
-/* 索引量大时全量内联会撑大 HTML，所以只内联精简字段：
-   q 截到 400 字符足够匹配，sub 截到 60。构建时会打印实际体积。 */
-const index = [
-  ...rows.map((r) => ({
-    t: r.title,
-    h: r.href,
-    k: r.kind,
-    l: r.label,
-    c: r.color,
-    s: r.sub.slice(0, 60),
-    q: r.q.slice(0, 400),
-  })),
-  ...actions.map((a) => ({
-    t: a.label,
-    h: a.href,
-    k: "action",
-    l: "",
-    c: "",
-    s: "",
-    q: a.q.toLowerCase(),
-  })),
-];
 ---
 
 <div class="cmdk" id="cmdk" hidden>
@@ -203,17 +73,45 @@ const index = [
   <kbd>{copy.palette.trigger}</kbd>
 </button>
 
-<script define:vars={{ index, copy }}>
+<script>
+  import { copy } from "../copy";
+  import { loadIndex, hits, snippet, hay, type IndexDoc } from "../lib/search-client";
+
+  const META = {
+    posts: { label: copy.kinds.posts, color: "#378ADD" },
+    notes: { label: copy.kinds.notes, color: "#5DCAA5" },
+    snippets: { label: copy.kinds.snippets, color: "#EF9F27" },
+    micro: { label: copy.kinds.micro, color: "#D4537E" },
+  };
+
+  /* 常驻操作。输入里出现这些词时也参与匹配 */
+  const ACTIONS = [
+    { t: copy.palette.actions.home, h: "/", q: "首页 home 主页 index" },
+    { t: copy.palette.actions.notes, h: "/notes/", q: "笔记 notes 学习" },
+    { t: copy.palette.actions.snippets, h: "/snippets/", q: "代码 snippets code 运行" },
+    { t: copy.palette.actions.micro, h: "/micro/", q: "随笔 micro 想法" },
+    { t: copy.palette.actions.archive, h: "/archive/", q: "归档 archive 全部" },
+    { t: copy.palette.actions.about, h: "/about/", q: "关于 about 简介" },
+    { t: copy.palette.actions.kb, h: "/kb/", q: "知识库 kb 图谱 关系" },
+    { t: copy.palette.actions.danmaku, h: "/danmaku/", q: "弹幕 danmaku 彩蛋" },
+    { t: copy.palette.actions.rss, h: "/rss.xml", q: "rss 订阅 feed" },
+  ].map((a) => ({ ...a, q: a.q.toLowerCase() }));
+
   /* 元素引用 / 开合函数 / 选中态提到模块级：window 在换页后保留，
      全局 ⌘K 监听只绑一次，闭包引用这些模块级变量，换页后由 setupPalette 刷新。 */
-  let root, input, list, fab;
-  let open, close;
-  let rows = [], sel = 0, lastFocus = null;
+  let root: HTMLElement | null, input: HTMLInputElement | null, list: HTMLElement | null, fab: HTMLElement | null;
+  let open: () => void, close: () => void;
+  let rows: { h: string; t: string; k: string; l: string; c: string; s: string; d?: IndexDoc }[] = [];
+  let sel = 0;
+  let lastFocus: Element | null = null;
+
+  /* 全站文档，第一次打开面板时拉 */
+  let docs: IndexDoc[] | null = null;
 
   function setupPalette() {
     root = document.getElementById("cmdk");
     const scrim = document.getElementById("cmdkScrim");
-    input = document.getElementById("cmdkInput");
+    input = document.getElementById("cmdkInput") as HTMLInputElement | null;
     list = document.getElementById("cmdkList");
     const emptyEl = document.getElementById("cmdkEmpty");
     const countEl = document.getElementById("cmdkCount");
@@ -225,9 +123,8 @@ const index = [
     sel = 0;
     lastFocus = null;
 
-    /* 命中处高亮。只包标题，别把正文也切 span —— 正文长，
-       切出来的 DOM 反而更慢。高亮就够指路了。 */
-    const mark = (text, q) => {
+    /* 命中处高亮。只包词本身，别把整段都切成 span */
+    const mark = (text: string, q: string) => {
       const frag = document.createDocumentFragment();
       if (!q) {
         frag.appendChild(document.createTextNode(text));
@@ -237,9 +134,7 @@ const index = [
       let from = 0;
       let at = low.indexOf(q);
       while (at !== -1) {
-        if (at > from) {
-          frag.appendChild(document.createTextNode(text.slice(from, at)));
-        }
+        if (at > from) frag.appendChild(document.createTextNode(text.slice(from, at)));
         const b = document.createElement("b");
         b.className = "cmdk-hit";
         b.textContent = text.slice(at, at + q.length);
@@ -247,59 +142,69 @@ const index = [
         from = at + q.length;
         at = low.indexOf(q, from);
       }
-      if (from < text.length) {
-        frag.appendChild(document.createTextNode(text.slice(from)));
-      }
+      if (from < text.length) frag.appendChild(document.createTextNode(text.slice(from)));
       return frag;
     };
 
-    /* 多关键词 AND：空格分词，全中才算命中。顺序无所谓，
-       所以搜「树 插入」能命中「红黑树插入」 */
-    const score = (r, terms) => {
-      const hay = r.q || "";
-      const title = r.t.toLowerCase();
-      for (const t of terms) {
-        if (!hay.includes(t)) return -1;
-      }
-      let s = 0;
-      for (const t of terms) {
-        /* 标题命中比正文命中值钱得多，排序时要体现 */
-        if (title.includes(t)) s += title.startsWith(t) ? 12 : 8;
-        if (r.s && r.s.toLowerCase().includes(t)) s += 3;
-      }
-      /* 越短越可能是要找的那篇，同分时排前面 */
-      return s - Math.min(4, r.q.length / 400);
+    const rowOf = (d: IndexDoc) => {
+      const m = META[d.k as keyof typeof META];
+      return {
+        h: d.u,
+        t: d.t,
+        k: d.k,
+        l: m?.label ?? "",
+        c: m?.color ?? "",
+        s: d.s.slice(0, 60),
+        d,
+      };
     };
 
     const render = () => {
       const q = input.value.trim().toLowerCase();
       const terms = q.split(/\s+/).filter(Boolean);
+      list.textContent = "";
 
       if (!terms.length) {
         /* 空输入这一屏是「最近写的」+「快速跳转」，比空白有用得多。
+           顺序由 /search-index.json 保证（日期倒序）。
            micro 不进最近区：它没有独立详情页，全跳 /micro/，
-           占掉 3 个位置却给不出 3 个不同去处。
-           注意两个分支都要包成 {r, s} —— 下面统一按 .r 取，不包会读到 undefined。 */
-        const recent = index
-          .filter((r) => r.k !== "action" && r.k !== "micro")
-          .slice(0, 8);
-        const acts = index.filter((r) => r.k === "action");
-        rows = [...recent, ...acts]
-          .slice(0, LIMIT)
-          .map((r) => ({ r, s: 0 }));
+           占掉几个位置却给不出几个不同去处。 */
+        const recent = (docs ?? []).filter((d) => d.k !== "micro").slice(0, 8).map(rowOf);
+        const acts = ACTIONS.map((a) => ({ h: a.h, t: a.t, k: "action", l: "", c: "", s: "" }));
+        rows = [...recent, ...acts].slice(0, LIMIT);
       } else {
-        rows = index
-          .map((r) => ({ r, s: score(r, terms) }))
-          .filter((x) => x.s >= 0)
+        const list2 = (docs ?? [])
+          .filter((d) => hits(d, terms))
+          .map((d) => {
+            /* 标题命中比正文命中值钱得多，排序要体现 */
+            const title = d.t.toLowerCase();
+            let s = 0;
+            for (const t of terms) {
+              if (title.includes(t)) s += title.startsWith(t) ? 12 : 8;
+              else if (d.s.toLowerCase().includes(t)) s += 3;
+              else if (hay(d).includes(t)) s += 1;
+            }
+            return { d, s };
+          })
           .sort((a, b) => b.s - a.s)
-          .slice(0, LIMIT);
+          .slice(0, LIMIT)
+          .map((x) => rowOf(x.d));
+
+        const acts = ACTIONS.filter((a) => terms.every((t) => a.q.includes(t))).map((a) => ({
+          h: a.h,
+          t: a.t,
+          k: "action",
+          l: "",
+          c: "",
+          s: "",
+        }));
+        rows = [...list2, ...acts].slice(0, LIMIT);
       }
 
       sel = 0;
-      list.textContent = "";
 
       for (let i = 0; i < rows.length; i++) {
-        const r = rows[i].r;
+        const r = rows[i];
         const isAction = r.k === "action";
         const el = document.createElement("a");
         el.className = "cmdk-row" + (isAction ? " is-action" : "");
@@ -321,7 +226,21 @@ const index = [
         t.className = "cmdk-t";
         t.appendChild(mark(r.t, terms[0] ?? ""));
         main.appendChild(t);
-        if (r.s) {
+
+        /* 副行优先显示「正文里的那句原文」——
+           只搜到标题的话，用户没法判断是不是要找的那篇。 */
+        const snip = terms.length && r.d ? snippet(r.d, terms.find((x) => x.length > 1) ?? terms[0]) : null;
+        if (snip) {
+          const s = document.createElement("span");
+          s.className = "cmdk-s";
+          s.appendChild(document.createTextNode(snip.pre));
+          const b = document.createElement("b");
+          b.className = "cmdk-hit";
+          b.textContent = snip.hit;
+          s.appendChild(b);
+          s.appendChild(document.createTextNode(snip.post));
+          main.appendChild(s);
+        } else if (r.s) {
           const s = document.createElement("span");
           s.className = "cmdk-s";
           s.textContent = r.s;
@@ -344,26 +263,23 @@ const index = [
         const none = rows.length === 0 && q2.length > 0;
         emptyEl.hidden = !none;
         if (none) {
-          emptyEl.textContent =
-            copy.palette.empty.replace("{q}", q2) + copy.palette.emptyHint;
+          emptyEl.textContent = copy.palette.empty.replace("{q}", q2) + copy.palette.emptyHint;
         }
       }
-      if (countEl) {
-        countEl.textContent = q2 ? `${rows.length}` : "";
-      }
+      if (countEl) countEl.textContent = q2 ? `${rows.length}` : "";
       paint();
     };
 
     const paint = () => {
-      const kids = Array.from(list.children);
+      const kids = Array.from(list.children) as HTMLElement[];
       kids.forEach((el, i) => {
         const on = i === sel;
         el.classList.toggle("on", on);
         el.setAttribute("aria-selected", String(on));
       });
       /* 键盘上下时把选中项滚进可视区。scrollIntoView 用 instant，
-       否则会跟面板自己的入场动画打架，看着像卡了一下 */
-      kids[sel]?.scrollIntoView({ block: "nearest", behavior: "instant" });
+         否则会跟面板自己的入场动画打架，看着像卡了一下 */
+      kids[sel]?.scrollIntoView({ block: "nearest", behavior: "instant" as ScrollBehavior });
       input.setAttribute("aria-activedescendant", `cmdk-r${sel}`);
     };
 
@@ -380,6 +296,13 @@ const index = [
       render();
       input.focus();
       input.select();
+      /* 第一次打开才拉索引；拉回来若面板还开着就重画一遍 */
+      if (!docs) {
+        loadIndex().then((d) => {
+          docs = d;
+          if (root && !root.hidden) render();
+        });
+      }
     };
 
     close = () => {
@@ -401,7 +324,7 @@ const index = [
     input.addEventListener("input", render);
 
     list.addEventListener("click", (e) => {
-      const row = e.target.closest?.(".cmdk-row");
+      const row = (e.target as HTMLElement | null)?.closest?.(".cmdk-row");
       if (row instanceof HTMLElement) {
         /* 不再 preventDefault + location.href（那会触发整页刷新，
            与 ClientRouter 的平滑换页/视图过渡冲突）。这里只关面板，
@@ -412,7 +335,7 @@ const index = [
 
     /* 指针划过就切换选中，否则鼠标和键盘的选中会各说各话 */
     list.addEventListener("pointermove", (e) => {
-      const row = e.target.closest?.(".cmdk-row");
+      const row = (e.target as HTMLElement | null)?.closest?.(".cmdk-row");
       if (row instanceof HTMLElement) {
         const i = Number(row.dataset.i);
         if (Number.isFinite(i) && i !== sel) {
@@ -428,12 +351,12 @@ const index = [
 
     /* ⌘K 全局快捷键：document 级，只在首次绑一次（window 换页后保留）。
        闭包引用模块级 root/open/close/rows/sel，换页后由 setupPalette 刷新。 */
-    if (!window.__cmdKeyBound) {
-      window.__cmdKeyBound = true;
+    if (!(window as unknown as { __cmdKeyBound?: boolean }).__cmdKeyBound) {
+      (window as unknown as { __cmdKeyBound?: boolean }).__cmdKeyBound = true;
       document.addEventListener("keydown", (e) => {
         if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
-          if (root) (root.hidden ? open() : close());
+          if (root) root.hidden ? open() : close();
           return;
         }
         if (!root || root.hidden) return;
@@ -459,7 +382,7 @@ const index = [
           paint();
         } else if (e.key === "Enter") {
           e.preventDefault();
-          const href = list.children[sel]?.getAttribute("href");
+          const href = (list.children[sel] as HTMLAnchorElement | undefined)?.getAttribute("href");
           if (href) location.href = href;
         }
       });

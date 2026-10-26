@@ -4,7 +4,7 @@ import puppeteer from "puppeteer-core";
 import { writeFileSync } from "node:fs";
 
 const EXE = "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
-const BASE = "http://localhost:4321";
+const BASE = process.env.CHECK_BASE || "http://localhost:4321";
 const OUT = "D:/Projects/blog/_final_check.json";
 
 const PAGES = [

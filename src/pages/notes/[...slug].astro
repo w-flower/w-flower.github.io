@@ -4,6 +4,7 @@ import ArticlePage from "../../components/ArticlePage.astro";
 import { copy } from "../../copy";
 import { isPublished } from "../../lib/format";
 import { getRelated } from "../../lib/related";
+import { toSeries } from "../../lib/series";
 
 export async function getStaticPaths() {
   const notes = await getCollection("notes");
@@ -16,6 +17,12 @@ const { note } = Astro.props;
 const { Content, headings } = await render(note);
 const d = note.data;
 const related = await getRelated({ kind: "notes", id: note.id, course: d.course });
+
+/* 连载导航：01 → 02 → … → 13 → 附录 A/B。
+   序号从标题前缀读出来，不另存 order 字段（见 lib/series.ts）。 */
+const all = await getCollection("notes");
+const series = toSeries(all.filter((n) => isPublished(n.data)));
+const curIdx = series.findIndex((s) => s.id === note.id);
 ---
 
 <ArticlePage
@@ -26,6 +33,9 @@ const related = await getRelated({ kind: "notes", id: note.id, course: d.course 
   tags={[d.course, ...(d.tags || [])]}
   headings={headings}
   related={related}
+  series={series.map((s) => ({ n: s.n, title: s.title, href: s.href }))}
+  curIdx={curIdx}
+  comments
   more={[
     { label: "课程", value: d.course },
     { label: "状态", value: copy.noteStatus[d.status] },

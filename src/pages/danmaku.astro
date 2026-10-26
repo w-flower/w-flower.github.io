@@ -3,37 +3,82 @@
  * ============================================================
  *  弹幕墙
  * ------------------------------------------------------------
- *  把所有随笔（micro）变成从右往左飘的弹幕。
+ *  内容来源（按优先级拼在一起，缺哪个都不会空）：
+ *    1. 随笔 micro —— 本来就是 1–3 句，天生适合当弹幕
+ *    2. 每篇笔记的摘要首句 —— 一句话说清这一节在解决什么
+ *    3. copy.quotes 里的名句 —— 氛围用
  *
- *  为什么用随笔：micro 就是 1–3 句话，天生适合当弹幕。
- *  数量天然可控（目前个位数），所以不会变成粒子海。
+ *  为什么不再只取 micro：micro 目录是空的，页面就变成
+ *  「一共 0 条 + 一个空盒子」，点开始也没反应 —— 用户看到的
+ *  就是「弹幕墙坏了」。现在至少永远有 19 条可飘。
  *
- *  这是方案里唯一的「例外条款」——连续动画。三个约束把它压住：
+ *  三个约束压住连续动画：
  *    1. 独立彩蛋页，不进首页，不进任何列表页
- *    2. 粒子数 = 随笔条数，不做复制不做循环
- *    3. 可一键暂停，且默认就暂停（要主动点才开始）
+ *    2. 粒子数 = 内容条数，不做复制不做循环
+ *    3. 可一键暂停；进来就自动开始（这是唯一的连续动画页，
+ *       要它「默认不动」等于让人以为坏了）
  *  真机掉帧就退化成下面的静态列表，不用改组件。
  * ============================================================
  */
 import Base from "../layouts/Base.astro";
 import { getCollection } from "astro:content";
 import { copy } from "../copy";
-import { byDateDesc, fmtDate, isPublished } from "../lib/format";
+import { byDateDesc, isPublished } from "../lib/format";
 
-/* 页面内的脚本要拿到随笔文本，所以内容集合要在 frontmatter 里先取出来。
+/* 页面内的脚本要拿到文本，所以内容集合要在 frontmatter 里先取出来。
    Astro 的 frontmatter 和组件 script 是分开编译的，
    define:vars 只能传常量表达式，取过的集合正好可以直接传。 */
 const micros = byDateDesc(
   (await getCollection("micro")).filter((p) => isPublished(p.data))
 );
+const notes = byDateDesc(
+  (await getCollection("notes")).filter((p) => isPublished(p.data))
+);
 
-const plain = (s = "") =>
+/* 把 markdown 压成一行能飘的字。
+   注意公式：弹幕里没有 KaTeX，$x_0$ 直接显示会变成一堆美元符和花括号，
+   所以把公式符号脱掉、只留可读的拉丁字母和数字（$x_0$ → x0，\delta → delta）。 */
+const flatten = (s = "") =>
   s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\$\$[\s\S]*?\$\$/g, " ")
+    .replace(/\$([^$]*)\$/g, "$1")
+    .replace(/\\([a-zA-Z]+)/g, "$1")
+    .replace(/[{}_^]/g, "")
+    .replace(/[*`~>|]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
+/* 取第一小句，超长截断。弹幕一条太长会横穿整屏，读不完就飘走了。 */
+const firstClause = (s, max) => {
+  const t0 = flatten(s);
+  if (!t0) return "";
+  const m = t0.match(/^[^。！？；!?;]+[。！？；!?;]?/);
+  let t = (m ? m[0] : t0).trim().replace(/[。；;]$/, "");
+  if (t.length > max) t = t.slice(0, max) + "…";
+  return t;
+};
+
+/** @type {{t: string, mood: string, src: "micro" | "notes" | "quote", kind: string}[]} */
+const lines = [];
+for (const m of micros) {
+  const t = firstClause(m.body ?? "", 40);
+  if (t) lines.push({ t, mood: m.data.mood ?? "", src: "micro", kind: copy.danmaku.srcMicro });
+}
+for (const n of notes) {
+  const t = firstClause(n.data.summary || n.data.title, 34);
+  if (t) lines.push({ t, mood: "", src: "notes", kind: copy.danmaku.srcNote });
+}
+for (const q of copy.quotes) {
+  const t = firstClause(q, 40);
+  if (t) lines.push({ t, mood: "", src: "quote", kind: copy.danmaku.srcQuote });
+}
+
 /* 弹幕轨道数。轨道太多会互相压，太少会排成整齐的队列失去「弹幕感」。
-   固定 6 条，窄屏再由 CSS 收到 4 条。 */
+   固定 6 条，窄屏再由脚本收到 2–4 条。 */
 const lanes = 6;
 ---
 
@@ -46,20 +91,18 @@ const lanes = 6;
 
     <div class="dm-note glass">
       <p>{copy.danmaku.why}</p>
-      <p class="dm-note-k">{copy.danmaku.count.replace("{n}", String(micros.length))}</p>
+      <p class="dm-note-k">{copy.danmaku.count.replace("{n}", String(lines.length))}</p>
     </div>
 
     <!-- 静态列表先渲染出来。弹幕只是它的「动态视图」，
-         关掉动效、或者 JS 挂了，这里依然是一份完整可读的随笔列表。 -->
+         关掉动效、或者 JS 挂了，这里依然是一份完整可读的清单。 -->
     <ol class="dm-static" id="dmStatic">
       {
-        micros.map((m) => (
-          <li class="dm-static-row">
-            <time class="dm-static-d" datetime={m.data.date.toISOString()}>
-              {fmtDate(m.data.date)}
-            </time>
-            <span class="dm-static-t">{plain(m.body ?? "") || "（空）"}</span>
-            {m.data.mood && <span class="dm-static-m">{m.data.mood}</span>}
+        lines.map((l) => (
+          <li class="dm-static-row" data-src={l.src}>
+            <span class="dm-static-k">{l.kind}</span>
+            <span class="dm-static-t">{l.t}</span>
+            {l.mood && <span class="dm-static-m">{l.mood}</span>}
           </li>
         ))
       }
@@ -82,14 +125,52 @@ const lanes = 6;
 
     <p class="dm-fallback" id="dmFallback" hidden>{copy.danmaku.fallback}</p>
 
-    <a class="back-link" href="/micro/">{copy.danmaku.back}</a>
+    <a class="back-link" href="/notes/">{copy.danmaku.back}</a>
   </div>
 </Base>
 
-<script define:vars={{ lanes, micros: micros.map((m) => ({
-  t: plain(m.body ?? "") || "（空）",
-  m: m.data.mood ?? "",
-})) }}>
+<style>
+  /* 静态清单的来源标签。只给三个来源各一个色点，不抢正文。 */
+  .dm-static-k {
+    display: inline-block;
+    flex: none;
+    min-width: 2.6em;
+    margin-right: 10px;
+    padding: 1px 7px;
+    border-radius: var(--pill);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+    background: var(--glass);
+    border: 1px solid var(--hairline);
+    text-align: center;
+  }
+  .dm-static-row[data-src="notes"] .dm-static-k {
+    color: #2c8a6b;
+    border-color: color-mix(in srgb, #5dcaa5 40%, transparent);
+  }
+  .dm-static-row[data-src="quote"] .dm-static-k {
+    color: #3a6bb5;
+    border-color: color-mix(in srgb, #5b8def 40%, transparent);
+  }
+  [data-theme="dark"] .dm-static-row[data-src="notes"] .dm-static-k {
+    color: #7fe0bd;
+  }
+  [data-theme="dark"] .dm-static-row[data-src="quote"] .dm-static-k {
+    color: #8fb4f5;
+  }
+  .dm-static-row {
+    display: flex;
+    align-items: baseline;
+  }
+  .dm-static-t {
+    flex: 1 1 auto;
+  }
+</style>
+
+<script
+  define:vars={{ lanes, lines: lines.map((l) => ({ t: l.t, m: l.mood })) }}
+>
   /* 按钮两种文案直接从 DOM 上读，不在脚本里再抄一份 ——
      抄两份一定会走偏（已经踩过一次：copy 没传进 define:vars，
      按钮文案更新时报错，"暂停"永远显示成 "开始"）。 */
@@ -97,6 +178,7 @@ const lanes = 6;
   let dmItems, dmLanes, dmDuration = 16, dmLaneH = 46;
   let dmRunning = false, dmRaf = 0, dmLast = 0, dmLaneBusy = [], dmNodes = [], dmLastPick = -1;
   let dmResizeBound = false, dmVisBound = false;
+  let dmItemsLen = 0;
 
   const dmCalcLanes = () => {
     const w = (dmField ? dmField.clientWidth : 0) || 1000;
@@ -111,15 +193,16 @@ const lanes = 6;
     dmLaneBusy = Array.from({ length: n }, () => 0);
   };
   const dmPickItem = () => {
-    if (dmItems.length <= 1) return 0;
-    let k = Math.floor(Math.random() * dmItems.length);
+    if (dmItemsLen <= 1) return 0;
+    let k = Math.floor(Math.random() * dmItemsLen);
     for (let tries = 0; tries < 8 && k === dmLastPick; tries++) {
-      k = Math.floor(Math.random() * dmItems.length);
+      k = Math.floor(Math.random() * dmItemsLen);
     }
     dmLastPick = k;
     return k;
   };
   const dmSpawn = (now) => {
+    if (!dmField || !dmItems) return;
     const lane = dmLaneBusy.findIndex((end) => end <= now);
     if (lane === -1) return;
     dmLaneBusy[lane] = now + dmDuration * 1000 + 900;
@@ -162,7 +245,7 @@ const lanes = 6;
     dmRaf = requestAnimationFrame(dmTick);
   };
   const dmStart = () => {
-    if (dmRunning || !dmField || !dmItems || dmItems.length === 0) return;
+    if (dmRunning || !dmField || !dmItems || dmItemsLen === 0) return;
     dmRunning = true;
     dmLast = 0;
     for (let i = 0; i < Math.min(4, dmLaneBusy.length); i++) {
@@ -177,6 +260,8 @@ const lanes = 6;
   };
 
   function setupDanmaku() {
+    /* 换页回来时上一次的 rAF 还在跑，先停掉，避免两份循环抢同一个舞台 */
+    dmStop();
     dmStage = document.getElementById("dmStage");
     dmField = document.getElementById("dmField");
     dmToggle = document.getElementById("dmToggle");
@@ -185,46 +270,57 @@ const lanes = 6;
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (calm.matches) {
       if (dmFallback) dmFallback.hidden = false;
-    } else if (dmStage && dmField && dmToggle) {
-      dmStage.hidden = false;
-      dmItems = micros.map((m) => ({ t: m.t, m: m.m }));
-      dmLanes = lanes;
-      dmRunning = false;
-      dmRaf = 0;
-      dmLast = 0;
-      dmNodes = [];
-      dmLastPick = -1;
-      dmRefreshLanes();
-      if (!dmResizeBound) {
-        dmResizeBound = true;
-        window.addEventListener("resize", dmRefreshLanes);
+      return;
+    }
+    if (!dmStage || !dmField || !dmToggle) return;
+
+    dmStage.hidden = false;
+    dmItems = lines.map((m) => ({ t: m.t, m: m.m }));
+    dmItemsLen = dmItems.length;
+    dmLanes = lanes;
+    dmRunning = false;
+    dmRaf = 0;
+    dmLast = 0;
+    dmNodes = [];
+    dmLastPick = -1;
+    dmRefreshLanes();
+    if (!dmResizeBound) {
+      dmResizeBound = true;
+      window.addEventListener("resize", dmRefreshLanes);
+    }
+
+    const LABEL_PLAY = dmToggle.textContent?.trim() ?? "▶ 开始";
+    const LABEL_PAUSE = dmToggle.dataset.pause?.trim() || "⏸ 暂停";
+
+    dmToggle.addEventListener("click", () => {
+      if (dmRunning) {
+        dmStop();
+        dmToggle.textContent = LABEL_PLAY;
+        dmField.dataset.paused = "1";
+      } else {
+        delete dmField.dataset.paused;
+        dmStart();
+        dmToggle.textContent = LABEL_PAUSE;
       }
+    });
 
-      const LABEL_PLAY = dmToggle.textContent?.trim() ?? "▶ 开始";
-      const LABEL_PAUSE = dmToggle.dataset.pause?.trim() || "⏸ 暂停";
-
-      dmToggle.addEventListener("click", () => {
-        if (dmRunning) {
+    if (!dmVisBound) {
+      dmVisBound = true;
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
           dmStop();
-          dmToggle.textContent = LABEL_PLAY;
-          dmField.dataset.paused = "1";
-        } else {
-          delete dmField.dataset.paused;
+        } else if (dmToggle && dmToggle.textContent === LABEL_PAUSE) {
           dmStart();
-          dmToggle.textContent = LABEL_PAUSE;
         }
       });
-      dmField.dataset.paused = "1";
+    }
 
-      if (!dmVisBound) {
-        dmVisBound = true;
-        document.addEventListener("visibilitychange", () => {
-          if (document.hidden) dmStop();
-          else if (dmToggle.textContent === LABEL_PAUSE) dmStart();
-        });
-      }
+    /* 进页面就直接飘起来。原来默认暂停 + 空数据 = 看起来彻底坏了。 */
+    if (dmItemsLen > 0) {
+      dmStart();
+      dmToggle.textContent = LABEL_PAUSE;
+      delete dmField.dataset.paused;
     }
   }
   document.addEventListener("astro:page-load", setupDanmaku);
-
 </script>

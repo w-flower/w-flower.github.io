@@ -112,16 +112,55 @@ for (const t of Object.keys(byCourse)) {
   const seq = [...g].sort((x, y) => x.title.localeCompare(y.title));
   for (let i = 0; i < seq.length - 1; i++) addEdge(seq[i].id, seq[i + 1].id, 2);
 }
-// 共标签（文章 / 代码之间，以及笔记之间跨章节的知识点呼应）。注意：
-// 同课程的两条直接跳过，否则 15 篇同一门课的笔记会全互联成毛线团；
-// 它们已经按章节顺序连成链了，这里只连真正跨内容的共标签。
+/* 共标签（文章 / 代码之间，以及笔记之间跨章节的知识点呼应）。
+   注意笔记不能按「有共同标签就连」——15 篇同一门课连起来是毛线团。
+   这里用标签重合度卡一道：共 2 个以上，或者 Jaccard ≥ 0.5 才连。
+   原来是把「同课程」整个跳过，结果所有笔记之间的边都没了，
+   点一个圆点只高亮它自己 —— 图看着有、其实什么都没连。 */
+const tagSet = new Map(nodes.map((n) => [n.id, new Set(n.tags)]));
+const jaccard = (a: string, b: string) => {
+  const A = tagSet.get(a), B = tagSet.get(b);
+  if (!A || !B) return 0;
+  let inter = 0;
+  for (const t of A) if (B.has(t)) inter++;
+  const uni = A.size + B.size - inter;
+  return uni ? inter / uni : 0;
+};
+
 for (let i = 0; i < nodes.length; i++)
   for (let j = i + 1; j < nodes.length; j++) {
-    const shared = nodes[i].tags.filter((t) => nodes[j].tags.includes(t));
+    const a = nodes[i], b = nodes[j];
+    const shared = a.tags.filter((t) => tagSet.get(b.id)?.has(t));
     if (!shared.length) continue;
-    if (nodes[i].course && nodes[i].course === nodes[j].course) continue;
-    addEdge(nodes[i].id, nodes[j].id, 1);
+    if (a.kind !== b.kind) {
+      /* 跨类型（笔记 ↔ 代码 / 文章）的呼应很稀有，有一条算一条 */
+      addEdge(a.id, b.id, 1);
+      continue;
+    }
+    if (a.kind === "notes" && shared.length < 2 && jaccard(a.id, b.id) < 0.5) continue;
+    addEdge(a.id, b.id, 1);
   }
+
+/* 兜底：不允许出现「孤岛节点」。
+   孤立点在图上就是个没法点的装饰，点它只会把下面的卡片全藏掉 ——
+   用户看到的就是「知识库消失了」。这里给它接一条最近的边。 */
+{
+  const deg = new Map<string, number>();
+  for (const e of edges) {
+    deg.set(e.a, (deg.get(e.a) ?? 0) + 1);
+    deg.set(e.b, (deg.get(e.b) ?? 0) + 1);
+  }
+  const isolated = nodes.filter((n) => !deg.get(n.id));
+  for (const n of isolated) {
+    let best = null, bestScore = -1;
+    for (const m of nodes) {
+      if (m.id === n.id) continue;
+      const score = jaccard(n.id, m.id) * 10 + (m.kind === n.kind ? 1 : 0);
+      if (score > bestScore) { bestScore = score; best = m; }
+    }
+    if (best) addEdge(n.id, best.id, 1);
+  }
+}
 
 const courses = [...new Set(nodes.flatMap((n) => n.tags))].sort();
 const dataStr = JSON.stringify({ nodes, edges, courses })
@@ -277,38 +316,70 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
     width: 100%;
     height: auto;
     display: block;
+    overflow: visible;
   }
-  #kbSvg .node circle {
+
+  /* ── 为什么下面全段套 :global() ─────────────────────────────
+     SVG 里的圆、线、字全是脚本里 document.createElementNS 造出来的。
+     Astro 的 scoped CSS 会把选择器改写成带 [data-astro-cid-xxx] 的形式，
+     而动态创建的元素永远拿不到这个属性 —— 一条规则都匹配不上。
+     实测后果：节点文字退回浏览器默认 fill:black（深色底上直接看不见）、
+     连线退回 stroke:none（整张图只剩一堆浮着的绿点）。
+     所以这一层必须走 :global()，不能靠 scoped。 */
+  :global(#kbSvg .node circle) {
     cursor: pointer;
-    transition: 0.18s;
+    transition: r 0.18s, opacity 0.18s, stroke-width 0.18s;
   }
-  #kbSvg .node text {
+  :global(#kbSvg .node text) {
     font-size: 11px;
+    font-weight: 500;
     fill: var(--ink-2);
     pointer-events: none;
     font-family: var(--font-body);
+    /* 文字压在连线上也要能读：描一圈底色当描边，相当于给字加晕 */
+    paint-order: stroke;
+    stroke: var(--bg-bottom);
+    stroke-width: 3.2px;
+    stroke-linejoin: round;
   }
-  #kbSvg .node.dim {
-    opacity: 0.18;
+  :global(#kbSvg .node) {
+    transition: opacity 0.18s;
   }
-  #kbSvg .node.sel circle {
+  :global(#kbSvg .node.dim) {
+    opacity: 0.16;
+  }
+  :global(#kbSvg .node.sel) circle {
     stroke: var(--accent);
     stroke-width: 3px;
   }
-  #kbSvg .edge {
-    stroke: var(--hairline);
-    stroke-width: 1.2px;
-  }
-  #kbSvg .edge.strong {
-    stroke: rgba(91, 141, 239, 0.35);
+  :global(#kbSvg .node:hover) circle {
+    stroke: var(--accent);
     stroke-width: 2px;
   }
-  #kbSvg .edge.dim {
-    opacity: 0.06;
+  :global(#kbSvg .edge) {
+    stroke: var(--hairline);
+    stroke-width: 1.2px;
+    transition: opacity 0.18s, stroke 0.18s;
   }
-  #kbSvg .edge.hot {
+  :global(#kbSvg .edge.strong) {
+    stroke: rgba(91, 141, 239, 0.35);
+    stroke-width: 1.6px;
+  }
+  :global(#kbSvg .edge.dim) {
+    opacity: 0.08;
+  }
+  :global(#kbSvg .edge.hot) {
     stroke: var(--accent);
-    stroke-width: 2.4px;
+    stroke-width: 2.2px;
+  }
+  :global([data-theme="dark"] #kbSvg .edge) {
+    stroke: rgba(255, 255, 255, 0.16);
+  }
+  :global([data-theme="dark"] #kbSvg .edge.strong) {
+    stroke: rgba(120, 170, 255, 0.45);
+  }
+  :global([data-theme="dark"] #kbSvg .node text) {
+    stroke: #0b1220;
   }
   .result-line {
     color: var(--ink-3);
@@ -330,18 +401,30 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
   const { nodes, edges } = DATA;
   const W = 900, H = 560;
 
+  /* 固定种子的伪随机：布局必须可复现。
+     原来用 Math.random()，同一篇笔记每次刷新都换一个位置，
+     视觉上像「东西被挪来挪去」，也让人以为图会自己消失。 */
+  let seed = 20260101;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+
   // ---- 力导向布局 ----
   const pos = new Map();
   nodes.forEach((n, i) => {
     const a = (i / nodes.length) * Math.PI * 2;
     pos.set(n.id, {
-      x: W / 2 + Math.cos(a) * 220 + (Math.random() - 0.5) * 30,
-      y: H / 2 + Math.sin(a) * 220 + (Math.random() - 0.5) * 30,
+      x: W / 2 + Math.cos(a) * 220 + (rnd() - 0.5) * 30,
+      y: H / 2 + Math.sin(a) * 220 + (rnd() - 0.5) * 30,
       vx: 0, vy: 0,
     });
   });
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const ITER = reduce ? 1 : 420;
+  /* 迭代次数不跟 prefers-reduced-motion 走：这里没有「动画」，
+     只有一次算完就静止的落位。原来 reduce 时 ITER=1，
+     结果 15 个点全挤在初始的圆环上互相压住 —— 那才是「图坏了」的观感。 */
+  const ITER = 520;
+
   for (let it = 0; it < ITER; it++) {
     for (let i = 0; i < nodes.length; i++) {
       const a = pos.get(nodes[i].id);
@@ -349,7 +432,7 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
         const b = pos.get(nodes[j].id);
         let dx = a.x - b.x, dy = a.y - b.y;
         let d = Math.hypot(dx, dy) || 0.01;
-        const f = 6200 / (d * d);
+        const f = 9000 / (d * d);
         const ux = dx / d, uy = dy / d;
         a.vx += ux * f; a.vy += uy * f;
         b.vx -= ux * f; b.vy -= uy * f;
@@ -362,7 +445,7 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
       const a = pos.get(e.a), b = pos.get(e.b);
       let dx = b.x - a.x, dy = b.y - a.y;
       let d = Math.hypot(dx, dy) || 0.01;
-      const rest = e.w >= 2 ? 150 : 200;
+      const rest = e.w >= 2 ? 170 : 235;
       const f = (d - rest) * 0.02;
       const ux = dx / d, uy = dy / d;
       a.vx += ux * f; a.vy += uy * f;
@@ -381,6 +464,10 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
   const SVGNS = "http://www.w3.org/2000/svg";
   const gEdges = document.getElementById("kbEdges");
   const gNodes = document.getElementById("kbNodes");
+  /* 客户端换页回来时脚本会再跑一次，先把上一次画的清掉，
+     否则会出现两层节点叠在一起（越逛越糊）。 */
+  gEdges.replaceChildren();
+  gNodes.replaceChildren();
   const edgeEls = edges.map((e) => {
     const el = document.createElementNS(SVGNS, "line");
     el.setAttribute("class", "edge" + (e.w >= 2 ? " strong" : ""));
@@ -400,11 +487,15 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
     const t = document.createElementNS(SVGNS, "text");
     t.setAttribute("text-anchor", "middle");
     t.setAttribute("dy", "-14");
-    t.textContent = n.title.length > 9 ? n.title.slice(0, 9) + "…" : n.title;
+    t.textContent = n.title.length > 11 ? n.title.slice(0, 11) + "…" : n.title;
+    /* 圆点上挂原生 tooltip：图上只有 11 个字，全名得能查到 */
+    const tip = document.createElementNS(SVGNS, "title");
+    tip.textContent = n.title;
+    g.appendChild(tip);
     g.appendChild(c); g.appendChild(t);
     g.addEventListener("click", () => select(n.id));
     g.addEventListener("mouseenter", () => focusNode(n.id, true));
-    g.addEventListener("mouseleave", () => { if (!sel) clearFocus(); });
+    g.addEventListener("mouseleave", () => { if (!state.sel) clearFocus(); });
     gNodes.appendChild(g);
     return g;
   });
@@ -425,12 +516,27 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
   draw();
 
   // ---- 状态与筛选 ----
+  /* 选中态只有一份，放在 state.sel 里。原来另有一个 let sel = null
+     从来没被赋值，于是「鼠标移开是否清空高亮」永远走错分支。 */
   const state = { course: "*", kind: "all", q: "", sel: null };
-  let sel = null;
   const cards = [...document.querySelectorAll("#kbCards .card")];
   const search = document.getElementById("kbSearch");
   const result = document.getElementById("kbResult");
   const empty = document.getElementById("kbEmpty");
+
+  /* 全文索引：卡片上的 data-q 只到 4000 字，搜「开覆盖」这类
+     出现在后半篇的词会漏。同一份 /search-index.json 补上整篇正文。
+     这个脚本是 define:vars 内联的，不能 import，所以判断逻辑就地写一份。 */
+  let kbDocs = null;
+  const kbHay = (d) => (d.t + " " + d.g + " " + d.s + " " + d.b).toLowerCase();
+  fetch("/search-index.json")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      if (!j || !j.docs) return;
+      kbDocs = new Map(j.docs.map((d) => [d.u, d]));
+      if (state.q) apply();
+    })
+    .catch(() => {});
 
   const neighbors = (id) =>
     new Set(edges.filter((e) => e.a === id || e.b === id).map((e) => (e.a === id ? e.b : e.a)));
@@ -438,7 +544,14 @@ const dataStr = JSON.stringify({ nodes, edges, courses })
   function match(el) {
     if (state.kind !== "all" && el.dataset.kind !== state.kind) return false;
     if (state.course !== "*" && !(el.dataset.course || "").split("|").includes(state.course)) return false;
-    if (state.q && !(el.dataset.q || "").includes(state.q)) return false;
+    if (state.q) {
+      const d = kbDocs && kbDocs.get(el.getAttribute("href"));
+      if (d) {
+        if (!kbHay(d).includes(state.q)) return false;
+      } else if (!(el.dataset.q || "").includes(state.q)) {
+        return false;
+      }
+    }
     return true;
   }
   function apply() {

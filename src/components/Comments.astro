@@ -1,0 +1,740 @@
+---
+/**
+ * ============================================================
+ *  评论区
+ * ------------------------------------------------------------
+ *  三种可见性：
+ *    公开        谁都能看见
+ *    匿名        昵称留空即可，服务端不存身份
+ *    仅双方可见  库里的私密行对访客完全不开放，只能凭口令取回
+ *                （口令在服务端只是 sha256 指纹，读不回去）
+ *
+ *  endpoint / anonKey 没配就整块不渲染 —— 不留「加载失败」的空壳。
+ *  配置在 src/site.config.ts，建表 SQL 在 docs/comments-schema.sql。
+ * ============================================================
+ */
+import { copy } from "../copy";
+import { commentsEnabled } from "../lib/comments";
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const on = commentsEnabled;
+---
+
+{
+  on && (
+    <section class="cmt" id="comments" data-slug={slug} aria-label={copy.cmt.title}>
+      <header class="cmt-head">
+        <h2 class="cmt-title">{copy.cmt.title}</h2>
+        <span class="cmt-n" id="cmtN" />
+      </header>
+
+      <div class="cmt-switch" role="tablist" aria-label={copy.cmt.tabAria}>
+        <button type="button" class="cmt-tab on" data-vis="public" role="tab" aria-selected="true">
+          {copy.cmt.tabPublic}
+        </button>
+        <button type="button" class="cmt-tab" data-vis="private" role="tab" aria-selected="false">
+          {copy.cmt.tabPrivate}
+        </button>
+      </div>
+      <p class="cmt-hint" id="cmtHint">{copy.cmt.hintPublic}</p>
+
+      <form class="cmt-form" id="cmtForm" novalidate>
+        <div class="cmt-row">
+          <input
+            class="cmt-nick"
+            id="cmtNick"
+            maxlength="24"
+            placeholder={copy.cmt.nickPh}
+            aria-label={copy.cmt.nickPh}
+            autocomplete="off"
+          />
+          <span class="cmt-anon">{copy.cmt.anonTip}</span>
+        </div>
+        <textarea
+          class="cmt-body"
+          id="cmtBody"
+          maxlength="1200"
+          rows="4"
+          placeholder={copy.cmt.bodyPh}
+          aria-label={copy.cmt.bodyPh}
+        />
+        <div class="cmt-actions">
+          <span class="cmt-count" id="cmtCount">0 / 1200</span>
+          <button class="cmt-send" id="cmtSend" type="submit">
+            {copy.cmt.send}
+          </button>
+        </div>
+        <p class="cmt-msg" id="cmtMsg" hidden />
+      </form>
+
+      <ul class="cmt-list" id="cmtList" />
+      <p class="cmt-empty" id="cmtEmpty" hidden>
+        {copy.cmt.empty}
+      </p>
+
+      <details class="cmt-more" id="cmtRestore">
+        <summary>{copy.cmt.restore}</summary>
+        <div class="cmt-more-body">
+          <input id="cmtSecret" placeholder={copy.cmt.secretPh} spellcheck="false" autocomplete="off" />
+          <button type="button" id="cmtSecretGo">{copy.cmt.restoreGo}</button>
+        </div>
+        <p class="cmt-more-tip">{copy.cmt.restoreTip}</p>
+      </details>
+
+      <details class="cmt-more" id="cmtAdminBox">
+        <summary>{copy.cmt.admin}</summary>
+        <div class="cmt-more-body">
+          <input id="cmtPass" type="password" placeholder={copy.cmt.passPh} autocomplete="off" />
+          <button type="button" id="cmtPassGo">{copy.cmt.passGo}</button>
+          <button type="button" id="cmtPassOut" class="ghost">{copy.cmt.passOut}</button>
+        </div>
+        <p class="cmt-more-tip">{copy.cmt.adminTip}</p>
+      </details>
+    </section>
+  )
+}
+
+<style is:global>
+  /* ── 为什么整块用 is:global ─────────────────────────────────
+     评论条目、回复、徽标全是脚本里 document.createElement 造出来的，
+     它们拿不到 Astro 的 data-astro-cid-xxx 作用域属性 ——
+     scoped 样式对它们一条都不生效（实测后果：卡片没底没边、
+     正文变回继承色，整块读起来像坏了）。
+     类名全部带 cmt- 前缀，全局化不会撞车。 */
+  .cmt {
+    /* 输入框底色：玻璃层上用纯白会糊成一片，这里单独定义一个实一点的色 */
+    --field: rgba(255, 255, 255, 0.72);
+    margin: 40px 0 8px;
+    padding-top: 26px;
+    border-top: 1px solid var(--hairline);
+  }
+  [data-theme="dark"] .cmt {
+    --field: rgba(255, 255, 255, 0.06);
+  }
+  .cmt-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .cmt-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .cmt-n {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  .cmt-switch {
+    display: inline-flex;
+    gap: 4px;
+    padding: 3px;
+    margin-bottom: 8px;
+    border-radius: var(--pill);
+    background: var(--glass);
+    border: 1px solid var(--glass-line);
+  }
+  .cmt-tab {
+    border: 0;
+    background: transparent;
+    color: var(--ink-3);
+    font: inherit;
+    font-size: 12.5px;
+    padding: 6px 14px;
+    border-radius: var(--pill);
+    cursor: pointer;
+    transition: 0.16s;
+  }
+  .cmt-tab.on {
+    background: var(--accent);
+    color: #fff;
+  }
+  .cmt-hint {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+
+  .cmt-form {
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    background: var(--glass);
+    border: 1px solid var(--glass-line);
+    backdrop-filter: blur(var(--blur));
+  }
+  .cmt-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .cmt-nick,
+  .cmt-more-body input {
+    flex: 0 1 190px;
+    min-width: 0;
+    padding: 8px 11px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--glass-line);
+    border-radius: 9px;
+    outline: none;
+    transition: border-color 0.16s;
+  }
+  .cmt-nick:focus,
+  .cmt-body:focus,
+  .cmt-more-body input:focus {
+    border-color: var(--accent);
+  }
+  .cmt-anon {
+    font-size: 11.5px;
+    color: var(--ink-3);
+  }
+  .cmt-body {
+    display: block;
+    width: 100%;
+    padding: 11px 12px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--glass-line);
+    border-radius: 11px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.16s;
+  }
+  .cmt-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .cmt-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .cmt-send {
+    border: 0;
+    cursor: pointer;
+    padding: 8px 18px;
+    border-radius: var(--pill);
+    font: inherit;
+    font-size: 13px;
+    color: #fff;
+    background: var(--accent);
+    transition: 0.16s;
+  }
+  .cmt-send:hover {
+    filter: brightness(1.06);
+  }
+  .cmt-send:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .cmt-msg {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .cmt-msg.err {
+    color: #c0392b;
+  }
+  .cmt-msg code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--accent-soft);
+    color: var(--ink);
+    user-select: all;
+  }
+
+  .cmt-list {
+    list-style: none;
+    margin: 22px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .cmt-empty {
+    margin: 22px 0 0;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .cmt-item {
+    padding: 13px 15px;
+    border-radius: var(--radius-md);
+    background: var(--glass);
+    border: 1px solid var(--glass-line);
+  }
+  .cmt-item.owner {
+    border-left: 3px solid var(--accent);
+  }
+  .cmt-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .cmt-name {
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .cmt-badge {
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: var(--pill);
+    border: 1px solid var(--glass-line);
+    color: var(--ink-3);
+  }
+  .cmt-badge.owner {
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .cmt-badge.priv {
+    color: #a3541f;
+    border-color: rgba(239, 159, 39, 0.45);
+    background: rgba(239, 159, 39, 0.1);
+  }
+  .cmt-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.78;
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .cmt-replies {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0 0 0 14px;
+    border-left: 2px solid var(--hairline);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cmt-reply-btn {
+    margin-top: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .cmt-reply-form {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cmt-reply-form textarea {
+    width: 100%;
+    padding: 9px 11px;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--glass-line);
+    border-radius: 9px;
+    resize: vertical;
+    outline: none;
+  }
+  .cmt-reply-form textarea:focus {
+    border-color: var(--accent);
+  }
+  .cmt-reply-form .bar {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .cmt-reply-form button {
+    font: inherit;
+    font-size: 12.5px;
+    padding: 6px 14px;
+    border-radius: var(--pill);
+    border: 1px solid var(--glass-line);
+    background: var(--glass);
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .cmt-reply-form button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .cmt-more {
+    margin-top: 18px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+  }
+  .cmt-more summary {
+    cursor: pointer;
+    color: var(--ink-3);
+    list-style: none;
+  }
+  .cmt-more summary::-webkit-details-marker {
+    display: none;
+  }
+  .cmt-more summary::before {
+    content: "＋ ";
+    font-family: var(--font-mono);
+  }
+  .cmt-more[open] summary::before {
+    content: "－ ";
+  }
+  .cmt-more-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .cmt-more-body input {
+    flex: 1 1 220px;
+  }
+  .cmt-more-body button {
+    font: inherit;
+    font-size: 12.5px;
+    padding: 7px 14px;
+    border-radius: 9px;
+    border: 1px solid var(--glass-line);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  .cmt-more-body button.ghost {
+    background: var(--glass);
+    color: var(--ink-2);
+  }
+  .cmt-more-tip {
+    margin: 8px 0 0;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+
+  /* 标题、提示、计数这几行是直接压在背景图上的（不像评论卡片有玻璃底）。
+     深色红叶那一段上会糊，照正文的老办法给字加一层白晕。 */
+  .bg-calm .cmt-title,
+  .bg-calm .cmt-hint,
+  .bg-calm .cmt-n,
+  .bg-calm .cmt-more summary {
+    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.8);
+  }
+  [data-theme="dark"] .bg-calm .cmt-title,
+  [data-theme="dark"] .bg-calm .cmt-hint,
+  [data-theme="dark"] .bg-calm .cmt-n,
+  [data-theme="dark"] .bg-calm .cmt-more summary {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  /* ── 暗色覆盖（硬规矩：新增带底色的组件必须同批写 data-theme="dark"） ── */
+  [data-theme="dark"] .cmt-badge.priv {
+    color: #f0c48a;
+    background: rgba(239, 159, 39, 0.14);
+    border-color: rgba(239, 159, 39, 0.4);
+  }
+  [data-theme="dark"] .cmt-msg.err {
+    color: #ff9b8a;
+  }
+  [data-theme="dark"] .cmt-send,
+  [data-theme="dark"] .cmt-tab.on,
+  [data-theme="dark"] .cmt-more-body button,
+  [data-theme="dark"] .cmt-reply-form button.primary {
+    color: #0b1220;
+  }
+  [data-theme="dark"] .cmt-badge.owner {
+    color: #0b1220;
+  }
+</style>
+
+<script>
+  import { copy } from "../copy";
+  import {
+    loadLocal,
+    saveLocal,
+    listPublic,
+    postComment,
+    getThread,
+    reply,
+    makeSecret,
+    type Comment,
+  } from "../lib/comments";
+
+  /* 一份会话状态：换页后 DOM 换了，但口令还在 localStorage 里 */
+  let cmtSlug = "";
+  let vis: "public" | "private" = "public";
+  let publicRows: Comment[] = [];
+  let privateRows: Comment[] = [];
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+
+  /* 昵称留空就是匿名。服务端不存「匿名」两个字，存 null */
+  const nameOf = (c: Comment) => (c.nick && c.nick.trim()) || copy.cmt.anonName;
+
+  function setupComments() {
+    const root = document.getElementById("comments");
+    if (!root) return;
+    cmtSlug = root.dataset.slug || "";
+
+    const form = document.getElementById("cmtForm") as HTMLFormElement | null;
+    const nickEl = document.getElementById("cmtNick") as HTMLInputElement | null;
+    const bodyEl = document.getElementById("cmtBody") as HTMLTextAreaElement | null;
+    const sendEl = document.getElementById("cmtSend") as HTMLButtonElement | null;
+    const countEl = document.getElementById("cmtCount");
+    const msgEl = document.getElementById("cmtMsg");
+    const listEl = document.getElementById("cmtList");
+    const emptyEl = document.getElementById("cmtEmpty");
+    const nEl = document.getElementById("cmtN");
+    const hintEl = document.getElementById("cmtHint");
+    const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>(".cmt-tab"));
+    if (!form || !nickEl || !bodyEl || !sendEl || !listEl) return;
+
+    const local = loadLocal();
+    let secret = local.secret || "";
+    let adminPass = local.adminPass || "";
+
+    const say = (text: string, isErr = false) => {
+      if (!msgEl) return;
+      msgEl.hidden = false;
+      msgEl.classList.toggle("err", isErr);
+      msgEl.textContent = text;
+    };
+
+    /* ---- 渲染 ---- */
+    const itemOf = (c: Comment, kids: Comment[], canReply: boolean): HTMLElement => {
+      const li = document.createElement("li");
+      li.className = "cmt-item" + (c.is_owner ? " owner" : "");
+      li.dataset.id = c.id;
+
+      const meta = document.createElement("div");
+      meta.className = "cmt-meta";
+
+      const name = document.createElement("span");
+      name.className = "cmt-name";
+      /* 站长回复的 nick 是空的，直接叫「匿名」会让人以为陌生人插了话。
+         这里让它署名「站长」，左侧那道强调色竖线也标着它是作者说的话。 */
+      name.textContent = c.is_owner ? copy.cmt.badgeOwner : nameOf(c);
+      meta.appendChild(name);
+
+      if (vis === "private") {
+        const b = document.createElement("span");
+        b.className = "cmt-badge priv";
+        b.textContent = copy.cmt.badgePrivate;
+        meta.appendChild(b);
+      }
+      const time = document.createElement("time");
+      time.textContent = fmt(c.created_at);
+      meta.appendChild(time);
+      li.appendChild(meta);
+
+      const p = document.createElement("p");
+      p.className = "cmt-text";
+      p.textContent = c.body;
+      li.appendChild(p);
+
+      /* 站长回复入口：只有存过站长口令才出现，普通访客看不到这行 */
+      if (canReply && adminPass) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "cmt-reply-btn";
+        btn.textContent = copy.cmt.reply;
+        btn.addEventListener("click", () => openReply(li, c));
+        li.appendChild(btn);
+      }
+
+      if (kids.length) {
+        const ul = document.createElement("ul");
+        ul.className = "cmt-replies";
+        for (const k of kids) ul.appendChild(itemOf(k, [], false));
+        li.appendChild(ul);
+      }
+      return li;
+    };
+
+    const openReply = (host: HTMLElement, parent: Comment) => {
+      if (host.querySelector(".cmt-reply-form")) return;
+      const box = document.createElement("div");
+      box.className = "cmt-reply-form";
+      const ta = document.createElement("textarea");
+      ta.rows = 3;
+      ta.maxLength = 1200;
+      ta.placeholder = copy.cmt.replyPh;
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = copy.cmt.cancel;
+      const ok = document.createElement("button");
+      ok.type = "button";
+      ok.className = "primary";
+      ok.textContent = copy.cmt.replySend;
+      bar.append(cancel, ok);
+      box.append(ta, bar);
+      host.appendChild(box);
+      ta.focus();
+
+      cancel.addEventListener("click", () => box.remove());
+      ok.addEventListener("click", async () => {
+        const text = ta.value.trim();
+        if (!text) return;
+        ok.disabled = true;
+        try {
+          await reply(parent.id, text, adminPass);
+          box.remove();
+          await refresh();
+        } catch (e) {
+          say((e as Error).message || copy.cmt.fail, true);
+          ok.disabled = false;
+        }
+      });
+    };
+
+    const render = () => {
+      const rows = vis === "public" ? publicRows : privateRows;
+      listEl.textContent = "";
+
+      const roots = rows.filter((c) => !c.parent_id);
+      const kidsOf = (id: string) => rows.filter((c) => c.parent_id === id);
+      for (const r of roots) listEl.appendChild(itemOf(r, kidsOf(r.id), true));
+
+      if (emptyEl) {
+        emptyEl.hidden = roots.length > 0;
+        emptyEl.textContent = vis === "public" ? copy.cmt.empty : copy.cmt.emptyPrivate;
+      }
+      if (nEl) {
+        nEl.textContent = vis === "public" ? copy.cmt.count.replace("{n}", String(publicRows.length)) : "";
+      }
+    };
+
+    const refresh = async () => {
+      try {
+        publicRows = await listPublic(cmtSlug);
+      } catch (e) {
+        say((e as Error).message || copy.cmt.fail, true);
+      }
+      if (secret) {
+        try {
+          privateRows = await getThread(cmtSlug, secret);
+        } catch {
+          privateRows = [];
+        }
+      }
+      render();
+    };
+
+    /* ---- 可见性切换 ---- */
+    const setVis = (v: "public" | "private") => {
+      vis = v;
+      tabs.forEach((b) => {
+        const on = b.dataset.vis === v;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-selected", String(on));
+      });
+      if (hintEl) hintEl.textContent = v === "public" ? copy.cmt.hintPublic : copy.cmt.hintPrivate;
+      if (msgEl) msgEl.hidden = true;
+      render();
+    };
+    tabs.forEach((b) => b.addEventListener("click", () => setVis(b.dataset.vis === "private" ? "private" : "public")));
+
+    /* ---- 计数 ---- */
+    bodyEl.addEventListener("input", () => {
+      if (countEl) countEl.textContent = `${bodyEl.value.length} / 1200`;
+    });
+
+    /* ---- 发表 ---- */
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = bodyEl.value.trim();
+      if (!text) {
+        bodyEl.focus();
+        return;
+      }
+      sendEl.disabled = true;
+      try {
+        if (vis === "private") {
+          /* 第一次发私密留言时才生成口令，并存本机 */
+          if (!secret) {
+            secret = makeSecret();
+            saveLocal({ secret });
+          }
+          await postComment({ slug: cmtSlug, nick: nickEl.value, body: text, secret });
+          say(copy.cmt.postedPrivate.replace("{k}", secret));
+        } else {
+          await postComment({ slug: cmtSlug, nick: nickEl.value, body: text });
+          say(copy.cmt.postedPublic);
+        }
+        bodyEl.value = "";
+        if (countEl) countEl.textContent = "0 / 1200";
+        await refresh();
+      } catch (err) {
+        say((err as Error).message || copy.cmt.fail, true);
+      } finally {
+        sendEl.disabled = false;
+      }
+    });
+
+    /* ---- 换设备：手输口令取回 ---- */
+    const secretInput = document.getElementById("cmtSecret") as HTMLInputElement | null;
+    const secretGo = document.getElementById("cmtSecretGo");
+    if (secretInput) secretInput.value = secret;
+    secretGo?.addEventListener("click", async () => {
+      const v = (secretInput?.value || "").trim();
+      if (!v) return;
+      secret = v;
+      saveLocal({ secret });
+      privateRows = await getThread(cmtSlug, secret).catch(() => []);
+      setVis("private");
+      say(privateRows.length ? copy.cmt.restored.replace("{n}", String(privateRows.length)) : copy.cmt.restoreNone);
+    });
+
+    /* ---- 站长口令 ---- */
+    const passInput = document.getElementById("cmtPass") as HTMLInputElement | null;
+    if (passInput) passInput.value = adminPass;
+    document.getElementById("cmtPassGo")?.addEventListener("click", () => {
+      adminPass = (passInput?.value || "").trim();
+      saveLocal({ adminPass });
+      say(adminPass ? copy.cmt.passSaved : copy.cmt.passCleared);
+      render();
+    });
+    document.getElementById("cmtPassOut")?.addEventListener("click", () => {
+      adminPass = "";
+      if (passInput) passInput.value = "";
+      saveLocal({ adminPass: "" });
+      say(copy.cmt.passCleared);
+      render();
+    });
+
+    setVis("public");
+    refresh();
+  }
+
+  document.addEventListener("astro:page-load", setupComments);
+</script>

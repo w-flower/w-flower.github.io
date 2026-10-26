@@ -484,6 +484,26 @@ a {
     transparent 100%
   );
   will-change: transform;
+  /* 背景图的「呼吸」：极慢的推近 + 平移。
+     54 秒一个来回，单帧变化肉眼看不出来，但盯着看就是活的 ——
+     这就是之前丢掉的那点「移动感」。只用 transform，走合成器，
+     不重排、不触发 paint。
+     滚动视差另走 translate 属性（见 Base.astro 的 bgStep），
+     两个属性各自独立，互不覆盖。 */
+  animation: bg-breathe 54s ease-in-out infinite;
+  transform-origin: center 34%;
+}
+
+@keyframes bg-breathe {
+  0% {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.1) translate3d(-1.1%, -1.5%, 0);
+  }
+  100% {
+    transform: scale(1.05) translate3d(1.1%, -0.3%, 0);
+  }
 }
 
 /* 换图：把 public/bg/hero.jpg 换成你的文件，文件名一样就行。 */
@@ -1343,6 +1363,25 @@ a {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* 搜索命中时，描述位换成正文里的那句原文，命中的词标出来。
+   摘要本来就不是用户输入的那句话，看到原文才敢点。 */
+.card-desc.has-hit {
+  color: var(--ink-2);
+}
+.card-desc mark.q-hit,
+.cmdk-s b.cmdk-hit {
+  background: rgba(91, 141, 239, 0.16);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+[data-theme="dark"] .card-desc mark.q-hit,
+[data-theme="dark"] .cmdk-s b.cmdk-hit {
+  background: rgba(120, 170, 255, 0.24);
+  color: #eaf1ff;
 }
 
 .card-foot {
@@ -4460,6 +4499,209 @@ html:not(.js-ready) .stagger > * {
 .tag-chip:hover {
   color: var(--accent);
   border-color: rgba(91, 141, 239, 0.45);
+}
+
+/* ============ 连载轨道（笔记页 01 → 02 → …） ============
+   读一节时脑子里冒出来的下一句永远是「下一节在哪」，
+   这个念头出现在读到一半，不是滚到底 —— 所以入口放在标题下面。
+   数字是主视觉（一眼看到第几讲），完整标题进 tooltip。 */
+.seq-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 2px;
+  padding: 7px 9px;
+  border-radius: var(--radius-md);
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  backdrop-filter: blur(var(--blur));
+}
+
+.seq-list {
+  display: flex;
+  gap: 3px;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.seq-list::-webkit-scrollbar {
+  display: none;
+}
+
+.seq-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink-3);
+  transition: color 0.16s, background 0.16s, border-color 0.16s;
+}
+.seq-n.done {
+  color: var(--ink-2);
+}
+.seq-n:hover {
+  color: var(--accent);
+  border-color: rgba(91, 141, 239, 0.4);
+}
+.seq-n.on {
+  color: #fff;
+  font-weight: 600;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.seq-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: var(--ink-2);
+  transition: color 0.16s, background 0.16s;
+}
+.seq-step svg {
+  width: 15px;
+  height: 15px;
+}
+.seq-step:hover {
+  color: var(--accent);
+  background: rgba(91, 141, 239, 0.12);
+}
+.seq-step[aria-disabled="true"] {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.seq-count {
+  flex: none;
+  padding-left: 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* 文末的「上一篇 / 下一篇」大卡片 */
+.seq-foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 26px 0 6px;
+}
+.seq-card {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  align-items: baseline;
+  justify-content: start;
+  gap: 2px 8px;
+  padding: 13px 15px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-line);
+  background: var(--glass);
+  transition: border-color 0.18s, transform 0.18s;
+}
+.seq-card.next {
+  justify-content: end;
+  text-align: right;
+}
+.seq-card:hover {
+  border-color: rgba(91, 141, 239, 0.45);
+  transform: translateY(-2px);
+}
+.seq-card-k {
+  grid-column: 1;
+  grid-row: 1;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.seq-card-n {
+  grid-column: 2;
+  grid-row: 1;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--accent);
+}
+.seq-card-t {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.seq-card.ghost {
+  border-style: dashed;
+  border-color: var(--hairline);
+  background: transparent;
+}
+
+/* 目录栏底部的常驻「下一篇」：跟着 sticky 一起滚，读到任何一段都能走 */
+.toc-next {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+  color: var(--ink-2);
+  transition: color 0.18s;
+}
+.toc-next:hover {
+  color: var(--accent);
+}
+.toc-next svg {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+}
+.toc-next-k {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.toc-next-n {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .seq-rail {
+    gap: 4px;
+    padding: 6px;
+  }
+  .seq-n {
+    min-width: 26px;
+    font-size: 11.5px;
+  }
+  .seq-count {
+    display: none;
+  }
+  .seq-foot {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .seq-card.next {
+    justify-content: start;
+    text-align: left;
+  }
 }
 
 /* 正文里的小节标题要躲开固定导航 */

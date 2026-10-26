@@ -18,3 +18,4 @@ _tmp_*
 .admin-backup/
 _backup-content-*/
 preview/
+dist-cmt/

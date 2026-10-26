@@ -247,218 +247,292 @@ const showKinds = scope === "all";
 
 <HoverCard />
 
-<script define:vars={{ PER_PAGE }}>
+<script>
+  /* 这里从 define:vars 改成模块脚本，是为了能 import 共用模块：
+     define:vars 的脚本会被内联成经典脚本，不能带 import 语句。 */
+  import { copy } from "../copy";
+  import { loadIndex, byUrl, hits, snippet, type IndexDoc } from "../lib/search-client";
+
+  const PER_PAGE = 6;
+
   let clInput = null, clState = { kind: "all", tag: "*", q: "", page: 1 }, clApply = null, clSideList = null, clThumb = null;
   let clKeyBound = false, clResizeBound = false;
+  /** url → 全文文档。第一次搜索前拉好，之后所有匹配都走整篇正文 */
+  let clDocs = null;
+
+  /** 一条结果里把命中的那句原文切出来，塞进卡片描述位。
+      只搜得到标题时，用户没法判断这是不是要找的那篇 —— 摘要是空洞的，
+      原文才是证据。 */
+  const decorate = (el, terms) => {
+    const desc = el.querySelector(".card-desc");
+    if (!desc) return;
+    if (!desc.dataset.orig) desc.dataset.orig = desc.textContent || "";
+    let hit = null;
+    const d = clDocs && clDocs.get(el.getAttribute("href"));
+    if (d) {
+      for (const t of terms) {
+        const s = snippet(d, t);
+        if (s) { hit = s; break; }
+      }
+    }
+    if (!hit) {
+      if (desc.dataset.orig) desc.textContent = desc.dataset.orig;
+      desc.classList.remove("has-hit");
+      return;
+    }
+    desc.textContent = "";
+    desc.appendChild(document.createTextNode(hit.pre));
+    const b = document.createElement("mark");
+    b.className = "q-hit";
+    b.textContent = hit.hit;
+    desc.appendChild(b);
+    desc.appendChild(document.createTextNode(hit.post));
+    desc.classList.add("has-hit");
+  };
+
+  const undecorate = (el) => {
+    const desc = el.querySelector(".card-desc");
+    if (!desc) return;
+    if (desc.dataset.orig) desc.textContent = desc.dataset.orig;
+    desc.classList.remove("has-hit");
+  };
 
   function setupList() {
     const cards = [...document.querySelectorAll(".card[data-hc]")];
-  const pager = document.getElementById("pager");
-  const resultLine = document.getElementById("resultLine");
-  const emptyEl = document.getElementById("empty");
-  const input = document.getElementById("searchInput");
+    const pager = document.getElementById("pager");
+    const resultLine = document.getElementById("resultLine");
+    const emptyEl = document.getElementById("empty");
+    const input = document.getElementById("searchInput");
     clInput = input;
-  const sideList = document.getElementById("sideList");
-  const thumb = document.getElementById("sideThumb");
+    const sideList = document.getElementById("sideList");
+    const thumb = document.getElementById("sideThumb");
     clSideList = sideList;
     clThumb = thumb;
-  const countTpl = resultLine ? resultLine.textContent || "" : "";
+    const countTpl = resultLine ? resultLine.textContent || "" : "";
 
-  const state = { kind: "all", tag: "*", q: "", page: 1 };
+    const state = { kind: "all", tag: "*", q: "", page: 1 };
     clState = state;
-  let filtered = cards;
-  let totalPages = 1;
+    let filtered = cards;
+    let totalPages = 1;
 
-  // 从 /tags/ 点进来：?tag=xxx 直接筛到这个标签
-  const qTag = new URLSearchParams(location.search).get("tag");
-  if (qTag) {
-    state.tag = qTag;
-    const hit = document.querySelector(
-      '.chip[data-tag="' + qTag.replace(/["\\]/g, "\\$&") + '"]',
-    );
-    if (hit) {
-      document
-        .querySelectorAll(".chip[data-tag]")
-        .forEach((c) => c.setAttribute("aria-pressed", "false"));
-      hit.setAttribute("aria-pressed", "true");
-    }
-  }
-
-  const match = (el, s) => {
-    if (s.kind !== "all" && el.dataset.kind !== s.kind) return false;
-    if (s.tag !== "*" && !(el.dataset.tagsRaw || "").split("|").includes(s.tag))
-      return false;
-    if (s.q && !(el.dataset.q || "").includes(s.q)) return false;
-    return true;
-  };
-
-  const countText = (n) => {
-    const m = countTpl.match(/^(.*?)\{n\}(.*)$/);
-    return m ? m[1] + n + m[2] : countTpl.replace(/\d+/, String(n));
-  };
-
-  const buildPager = () => {
-    if (!pager) return;
-    pager.innerHTML = "";
-    if (totalPages <= 1) return;
-
-    const mkBtn = (label, page, opts) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = label;
-      if (opts.current) b.setAttribute("aria-current", "true");
-      if (opts.disabled) b.disabled = true;
-      if (!opts.disabled && !opts.current) {
-        b.addEventListener("click", () => {
-          state.page = page;
-          clApply(true);
-        });
+    // 从 /tags/ 点进来：?tag=xxx 直接筛到这个标签
+    const qTag = new URLSearchParams(location.search).get("tag");
+    if (qTag) {
+      state.tag = qTag;
+      const hit = document.querySelector(
+        '.chip[data-tag="' + qTag.replace(/["\\]/g, "\\$&") + '"]',
+      );
+      if (hit) {
+        document
+          .querySelectorAll(".chip[data-tag]")
+          .forEach((c) => c.setAttribute("aria-pressed", "false"));
+        hit.setAttribute("aria-pressed", "true");
       }
-      return b;
+    }
+
+    /* 匹配分两层：
+       1) 卡片自带的 data-q（构建期内联，只到 4000 字，够快，无网也能用）
+       2) 全文索引 clDocs（整篇正文，索引拉好后接管）
+       两层都不改 DOM 结构，只是让「查得到」从 4000 字变成整篇。 */
+    const match = (el, s) => {
+      if (s.kind !== "all" && el.dataset.kind !== s.kind) return false;
+      if (s.tag !== "*" && !(el.dataset.tagsRaw || "").split("|").includes(s.tag)) return false;
+      if (!s.q) return true;
+      const terms = s.q.split(/\s+/).filter(Boolean);
+      if (!terms.length) return true;
+      const local = el.dataset.q || "";
+      if (terms.every((t) => local.includes(t))) return true;
+      const d = clDocs && clDocs.get(el.getAttribute("href"));
+      return d ? hits(d, terms) : false;
     };
 
-    pager.appendChild(
-      mkBtn("‹", Math.max(1, state.page - 1), { disabled: state.page === 1 })
-    );
+    const countText = (n) => {
+      const m = countTpl.match(/^(.*?)\{n\}(.*)$/);
+      return m ? m[1] + n + m[2] : countTpl.replace(/\d+/, String(n));
+    };
 
-    const nums = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) nums.push(i);
-    } else {
-      nums.push(1);
-      if (state.page > 3) nums.push("...");
-      for (
-        let i = Math.max(2, state.page - 1);
-        i <= Math.min(totalPages - 1, state.page + 1);
-        i++
-      )
-        nums.push(i);
-      if (state.page < totalPages - 2) nums.push("...");
-      nums.push(totalPages);
-    }
+    const buildPager = () => {
+      if (!pager) return;
+      pager.innerHTML = "";
+      if (totalPages <= 1) return;
 
-    for (const n of nums) {
-      if (n === "...") {
-        const s = document.createElement("span");
-        s.className = "gap";
-        s.textContent = "…";
-        pager.appendChild(s);
+      const mkBtn = (label, page, opts) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        if (opts.current) b.setAttribute("aria-current", "true");
+        if (opts.disabled) b.disabled = true;
+        if (!opts.disabled && !opts.current) {
+          b.addEventListener("click", () => {
+            state.page = page;
+            clApply(true);
+          });
+        }
+        return b;
+      };
+
+      pager.appendChild(
+        mkBtn("‹", Math.max(1, state.page - 1), { disabled: state.page === 1 })
+      );
+
+      const nums = [];
+      if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) nums.push(i);
       } else {
-        pager.appendChild(mkBtn(String(n), n, { current: n === state.page }));
+        nums.push(1);
+        if (state.page > 3) nums.push("...");
+        for (
+          let i = Math.max(2, state.page - 1);
+          i <= Math.min(totalPages - 1, state.page + 1);
+          i++
+        )
+          nums.push(i);
+        if (state.page < totalPages - 2) nums.push("...");
+        nums.push(totalPages);
       }
-    }
 
-    pager.appendChild(
-      mkBtn("›", Math.min(totalPages, state.page + 1), {
-        disabled: state.page === totalPages,
-      })
-    );
-  };
-
-  clApply = (scroll) => {
-    filtered = cards.filter((el) => match(el, state));
-    totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-    if (state.page > totalPages) state.page = totalPages;
-    const start = (state.page - 1) * PER_PAGE;
-    const pageItems = filtered.slice(start, start + PER_PAGE);
-
-    cards.forEach((el) => {
-      const idx = pageItems.indexOf(el);
-      el.hidden = idx < 0;
-      if (idx >= 0) el.style.setProperty("--i", String(idx));
-    });
-
-    if (resultLine) resultLine.textContent = countText(filtered.length);
-    if (emptyEl) emptyEl.hidden = filtered.length > 0;
-    buildPager();
-
-    if (scroll) {
-      document
-        .getElementById("cards")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
-  const moveThumb = (btn) => {
-    if (!thumb || !sideList || !btn) return;
-    const a = btn.getBoundingClientRect();
-    const b = sideList.getBoundingClientRect();
-    thumb.style.height = a.height + "px";
-    thumb.style.transform = "translateY(" + (a.top - b.top) + "px)";
-  };
-
-  sideList?.querySelectorAll("button[data-kind]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      sideList
-        .querySelectorAll("button[data-kind]")
-        .forEach((b) => b.setAttribute("aria-selected", "false"));
-      btn.setAttribute("aria-selected", "true");
-      moveThumb(btn);
-      state.kind = btn.dataset.kind || "all";
-      state.page = 1;
-      clApply(false);
-    });
-  });
-
-  document.querySelectorAll(".chip[data-tag]").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      document
-        .querySelectorAll(".chip[data-tag]")
-        .forEach((c) => c.setAttribute("aria-pressed", "false"));
-      chip.setAttribute("aria-pressed", "true");
-      state.tag = chip.dataset.tag || "*";
-      state.page = 1;
-      clApply(false);
-    });
-  });
-
-  let debounce = 0;
-  input?.addEventListener("input", () => {
-    window.clearTimeout(debounce);
-    debounce = window.setTimeout(() => {
-      state.q = (input.value || "").trim().toLowerCase();
-      state.page = 1;
-      clApply(false);
-    }, 150);
-  });
-
-  if (!clKeyBound) {
-    clKeyBound = true;
-    document.addEventListener("keydown", (e) => {
-      const tag = (e.target && e.target.tagName) || "";
-      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag);
-      if (e.key === "/" && !typing) {
-        e.preventDefault();
-        clInput?.focus();
+      for (const n of nums) {
+        if (n === "...") {
+          const s = document.createElement("span");
+          s.className = "gap";
+          s.textContent = "…";
+          pager.appendChild(s);
+        } else {
+          pager.appendChild(mkBtn(String(n), n, { current: n === state.page }));
+        }
       }
-      if (e.key === "Escape" && document.activeElement === clInput) {
-        clInput.value = "";
-        clState.q = "";
-        clState.page = 1;
+
+      pager.appendChild(
+        mkBtn("›", Math.min(totalPages, state.page + 1), {
+          disabled: state.page === totalPages,
+        })
+      );
+    };
+
+    clApply = (scroll) => {
+      filtered = cards.filter((el) => match(el, state));
+      totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+      if (state.page > totalPages) state.page = totalPages;
+      const start = (state.page - 1) * PER_PAGE;
+      const pageItems = filtered.slice(start, start + PER_PAGE);
+
+      cards.forEach((el) => {
+        const idx = pageItems.indexOf(el);
+        el.hidden = idx < 0;
+        if (idx >= 0) el.style.setProperty("--i", String(idx));
+      });
+
+      /* 描述位：有查询就换成命中原文，没有就还原 */
+      const terms = state.q.split(/\s+/).filter(Boolean);
+      for (const el of cards) {
+        if (terms.length) decorate(el, terms);
+        else undecorate(el);
+      }
+
+      if (resultLine) {
+        /* 0 条的时候别挂「含正文」，否则读起来像「搜了正文也没有」的结论 */
+        const suffix = state.q && clDocs && filtered.length ? " · " + copy.search.inBody : "";
+        resultLine.textContent = countText(filtered.length) + suffix;
+      }
+      if (emptyEl) emptyEl.hidden = filtered.length > 0;
+      buildPager();
+
+      if (scroll) {
+        document
+          .getElementById("cards")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+
+    const moveThumb = (btn) => {
+      if (!thumb || !sideList || !btn) return;
+      const a = btn.getBoundingClientRect();
+      const b = sideList.getBoundingClientRect();
+      thumb.style.height = a.height + "px";
+      thumb.style.transform = "translateY(" + (a.top - b.top) + "px)";
+    };
+
+    sideList?.querySelectorAll("button[data-kind]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        sideList
+          .querySelectorAll("button[data-kind]")
+          .forEach((b) => b.setAttribute("aria-selected", "false"));
+        btn.setAttribute("aria-selected", "true");
+        moveThumb(btn);
+        state.kind = btn.dataset.kind || "all";
+        state.page = 1;
         clApply(false);
-        clInput.blur();
-      }
+      });
     });
-  }
 
-  requestAnimationFrame(() => {
-    const cur = sideList?.querySelector('button[aria-selected="true"]');
-    if (cur) moveThumb(cur);
-    clApply(false);
-  });
-
-  if (!clResizeBound) {
-    clResizeBound = true;
-    window.addEventListener("resize", () => {
-      const cur = clSideList?.querySelector('button[aria-selected="true"]');
-      if (cur && clThumb && clSideList) {
-        const a = cur.getBoundingClientRect();
-        const b = clSideList.getBoundingClientRect();
-        clThumb.style.height = a.height + "px";
-        clThumb.style.transform = "translateY(" + (a.top - b.top) + "px)";
-      }
+    document.querySelectorAll(".chip[data-tag]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document
+          .querySelectorAll(".chip[data-tag]")
+          .forEach((c) => c.setAttribute("aria-pressed", "false"));
+        chip.setAttribute("aria-pressed", "true");
+        state.tag = chip.dataset.tag || "*";
+        state.page = 1;
+        clApply(false);
+      });
     });
-  }
+
+    let debounce = 0;
+    input?.addEventListener("input", () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => {
+        state.q = (input.value || "").trim().toLowerCase();
+        state.page = 1;
+        clApply(false);
+      }, 150);
+    });
+
+    if (!clKeyBound) {
+      clKeyBound = true;
+      document.addEventListener("keydown", (e) => {
+        const tag = (e.target && e.target.tagName) || "";
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag);
+        if (e.key === "/" && !typing) {
+          e.preventDefault();
+          clInput?.focus();
+        }
+        if (e.key === "Escape" && document.activeElement === clInput) {
+          clInput.value = "";
+          clState.q = "";
+          clState.page = 1;
+          clApply(false);
+          clInput.blur();
+        }
+      });
+    }
+
+    requestAnimationFrame(() => {
+      const cur = sideList?.querySelector('button[aria-selected="true"]');
+      if (cur) moveThumb(cur);
+      clApply(false);
+    });
+
+    /* 全文索引：页面渲染完再拉，不挡首屏。
+       拉回来时如果用户已经在输了，重算一次 —— 否则那次搜索只用了 4000 字。 */
+    if (!clDocs) {
+      loadIndex().then((docs) => {
+        clDocs = byUrl(docs);
+        if (state.q) clApply(false);
+      });
+    }
+
+    if (!clResizeBound) {
+      clResizeBound = true;
+      window.addEventListener("resize", () => {
+        const cur = clSideList?.querySelector('button[aria-selected="true"]');
+        if (cur && clThumb && clSideList) {
+          const a = cur.getBoundingClientRect();
+          const b = clSideList.getBoundingClientRect();
+          clThumb.style.height = a.height + "px";
+          clThumb.style.transform = "translateY(" + (a.top - b.top) + "px)";
+        }
+      });
+    }
   }
   document.addEventListener("astro:page-load", setupList);
 </script>

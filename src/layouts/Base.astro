@@ -340,6 +340,29 @@ const menus: Record<string, { label: string; href: string }[]> = {
       window.__progressKick = progressKick;
       window.__progressReset = progressReset;
       progressKick();
+
+      /* 背景图滚动视差。
+         背景层是 position:fixed，图本身不动，整页滚起来就像一块贴纸。
+         这里把它随滚动往上推一点点（最多 120px），纵深就出来了。
+         用 translate 属性而不是 transform —— transform 已经被
+         bg-breathe 那个无限动画占着，两个属性分开写才能同时生效。
+         每帧只查一次元素，换页后自动指向新页面的 .bg-img。 */
+      const calmBG = window.matchMedia("(prefers-reduced-motion: reduce)");
+      let bgRaf = 0;
+      const bgStep = () => {
+        bgRaf = 0;
+        const img = document.querySelector(".bg-img");
+        if (!img) return;
+        if (calmBG.matches) { img.style.translate = ""; return; }
+        const y = window.scrollY;
+        const off = Math.min(120, y * 0.16);
+        img.style.translate = `0 ${off.toFixed(1)}px`;
+      };
+      const bgKick = () => { if (!bgRaf) bgRaf = requestAnimationFrame(bgStep); };
+      window.addEventListener("scroll", bgKick, { passive: true });
+      window.addEventListener("resize", bgKick);
+      window.__bgKick = bgKick;
+      bgKick();
     }
 
     function initBlog() {
@@ -404,6 +427,8 @@ const menus: Record<string, { label: string; href: string }[]> = {
       /* 客户端换页后 #progress 是全新元素，重踢进度条（复位姿态 + 刷新 DOM 引用） */
       if (window.__progressReset) window.__progressReset();
       if (window.__progressKick) window.__progressKick();
+      /* 背景视差同理：换页回到顶部后要把 translate 归零，不然图会歪着 */
+      if (window.__bgKick) window.__bgKick();
     }
 
     document.addEventListener("astro:page-load", initBlog);
