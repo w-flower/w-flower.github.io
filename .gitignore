@@ -6,3 +6,15 @@ _drafts/
 *.log
 .DS_Store
 Thumbs.db
+
+# deploy / temp artifacts（不进仓库）
+_final_check.json
+_preview.txt
+_retry_result.txt
+_fixdoc.py
+_fix*.png
+_*.png
+_tmp_*
+.admin-backup/
+_backup-content-*/
+preview/

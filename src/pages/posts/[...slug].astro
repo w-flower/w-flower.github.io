@@ -1,8 +1,9 @@
 ---
 import { getCollection, render } from "astro:content";
-import Base from "../../layouts/Base.astro";
+import ArticlePage from "../../components/ArticlePage.astro";
 import { copy } from "../../copy";
-import { fmtDate, isPublished } from "../../lib/format";
+import { isPublished } from "../../lib/format";
+import { getRelated } from "../../lib/related";
 
 export async function getStaticPaths() {
   const posts = await getCollection("posts");
@@ -12,25 +13,25 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
+const d = post.data;
+const related = await getRelated({ kind: "posts", id: post.id, tags: d.tags });
 ---
 
-<Base title={post.data.title} description={post.data.summary}>
-  <header class="article-head bg-grid">
-    <div class="wrap narrow">
-      <div class="article-meta" data-reveal>
-        <span>{fmtDate(post.data.date)}</span>
-        {post.data.tags.length > 0 && <span class="bar"></span>}
-        <span>{post.data.tags.join(" · ")}</span>
-      </div>
-      <h1 class="article-title" data-reveal>{post.data.title}</h1>
-    </div>
-  </header>
-
-  <div class="wrap narrow">
-    <div class="prose" data-reveal>
-      <Content />
-    </div>
-    <a class="back-link" href="/posts/">{copy.back.posts}</a>
-  </div>
-</Base>
+<ArticlePage
+  title={d.title}
+  date={d.date}
+  mood={d.mood}
+  tools={d.tools}
+  tags={d.tags}
+  headings={headings}
+  related={related}
+  more={[
+    { label: "分类", value: "文章" },
+    { label: "摘要", value: d.summary },
+  ]}
+  backHref="/posts/"
+  backLabel={copy.back.posts}
+>
+  <Content />
+</ArticlePage>

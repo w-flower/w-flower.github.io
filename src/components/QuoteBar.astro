@@ -1,0 +1,47 @@
+---
+/**
+ * 底部名句栏：显示 copy.quotes 的第一条，‹ › 切换
+ */
+import { copy } from "../copy";
+
+const quotes = copy.quotes;
+---
+
+<div class="quote-bar glass" id="quoteBar">
+  <span class="quote-mark" aria-hidden="true">“</span>
+  <p class="quote-text" id="quoteText">{quotes[0]}</p>
+  <div class="quote-ctrl">
+    <button type="button" id="quotePrev" aria-label="上一句">‹</button>
+    <button type="button" id="quoteNext" aria-label="下一句">›</button>
+  </div>
+</div>
+
+<script define:vars={{ quotes }}>
+  let qTxt = null, qI = 0, qBound = false;
+  function setupQuote() {
+    qTxt = document.getElementById("quoteText");
+    if (qTxt && quotes.length > 1) {
+      qI = 0;
+      const show = (n) => {
+        qI = (n + quotes.length) % quotes.length;
+        qTxt.textContent = quotes[qI];
+        qTxt.classList.remove("swap");
+        void qTxt.offsetWidth;
+        qTxt.classList.add("swap");
+      };
+      document.getElementById("quotePrev")?.addEventListener("click", () => show(qI - 1));
+      document.getElementById("quoteNext")?.addEventListener("click", () => show(qI + 1));
+      /* 方向键监听是 document 级，只绑一次；闭包引用模块级 qTxt/qI，换页后由 setupQuote 刷新 */
+      if (!qBound) {
+        qBound = true;
+        document.addEventListener("keydown", (e) => {
+          const tag = (e.target && e.target.tagName) || "";
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag)) return;
+          if (e.key === "ArrowLeft") show(qI - 1);
+          if (e.key === "ArrowRight") show(qI + 1);
+        });
+      }
+    }
+  }
+  document.addEventListener("astro:page-load", setupQuote);
+</script>

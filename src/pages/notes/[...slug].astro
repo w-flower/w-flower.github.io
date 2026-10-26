@@ -1,8 +1,9 @@
 ---
 import { getCollection, render } from "astro:content";
-import Base from "../../layouts/Base.astro";
+import ArticlePage from "../../components/ArticlePage.astro";
 import { copy } from "../../copy";
-import { fmtDate, isPublished } from "../../lib/format";
+import { isPublished } from "../../lib/format";
+import { getRelated } from "../../lib/related";
 
 export async function getStaticPaths() {
   const notes = await getCollection("notes");
@@ -12,30 +13,25 @@ export async function getStaticPaths() {
 }
 
 const { note } = Astro.props;
-const { Content } = await render(note);
+const { Content, headings } = await render(note);
+const d = note.data;
+const related = await getRelated({ kind: "notes", id: note.id, course: d.course });
 ---
 
-<Base title={note.data.title}>
-  <header class="article-head bg-grid">
-    <div class="wrap narrow">
-      <div class="article-meta" data-reveal>
-        <span style="display:inline-flex;align-items:center;gap:8px;">
-          <span class={`dot ${note.data.status}`} />
-          {copy.noteStatus[note.data.status]}
-        </span>
-        <span class="bar"></span>
-        <span>{note.data.course}</span>
-        <span class="bar"></span>
-        <span>{fmtDate(note.data.date)}</span>
-      </div>
-      <h1 class="article-title" data-reveal>{note.data.title}</h1>
-    </div>
-  </header>
-
-  <div class="wrap narrow">
-    <div class="prose" data-reveal>
-      <Content />
-    </div>
-    <a class="back-link" href="/notes/">{copy.back.notes}</a>
-  </div>
-</Base>
+<ArticlePage
+  title={d.title}
+  date={d.date}
+  mood={d.mood}
+  tools={d.tools}
+  tags={[d.course, ...(d.tags || [])]}
+  headings={headings}
+  related={related}
+  more={[
+    { label: "课程", value: d.course },
+    { label: "状态", value: copy.noteStatus[d.status] },
+  ]}
+  backHref="/notes/"
+  backLabel={copy.back.notes}
+>
+  <Content />
+</ArticlePage>

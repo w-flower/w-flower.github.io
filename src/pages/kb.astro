@@ -1,0 +1,520 @@
+---
+/**
+ * 知识库 / Knowledge Base
+ *   - 快速索引：标题/课程/标签/正文即时搜索 + 课程筛选
+ *   - 知识点桥梁：力导向关系图，节点=笔记/文章/代码，边=同课程/共标签/同章节顺序
+ *   - 点节点 => 高亮它的「相关笔记」，下方卡片只留它和邻居
+ *   - 支持 ?q= 从起始页带搜索词进来
+ */
+import { getCollection } from "astro:content";
+import Base from "../layouts/Base.astro";
+import { copy } from "../copy";
+import { byDateDesc, fmtDate, isPublished } from "../lib/format";
+
+const plain = (s = "") =>
+  s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_`~>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const notes = byDateDesc(
+  (await getCollection("notes")).filter((p) => isPublished(p.data))
+);
+const posts = byDateDesc(
+  (await getCollection("posts")).filter((p) => isPublished(p.data))
+);
+const snippets = byDateDesc(
+  (await getCollection("snippets")).filter((p) => isPublished(p.data))
+);
+
+const kindMeta: Record<string, { label: string; color: string }> = {
+  notes: { label: copy.kinds.notes, color: "#5DCAA5" },
+  posts: { label: copy.kinds.posts, color: "#378ADD" },
+  snippets: { label: copy.kinds.snippets, color: "#EF9F27" },
+};
+
+interface Node {
+  id: string;
+  href: string;
+  title: string;
+  kind: string;
+  label: string;
+  color: string;
+  course: string;
+  tags: string[];
+  q: string;
+}
+
+const nodes: Node[] = [];
+for (const n of notes) {
+  const body = plain((n as { body?: string }).body ?? "").slice(0, 320);
+  nodes.push({
+    id: `n:${n.id}`,
+    href: `/notes/${n.id}/`,
+    title: n.data.title,
+    kind: "notes",
+    label: kindMeta.notes.label,
+    color: kindMeta.notes.color,
+    course: n.data.course,
+    /* 笔记现在有知识点标签（夹逼、连续…）；没写就退回课程名 */
+    tags: n.data.tags.length ? n.data.tags : [n.data.course],
+    q: `${n.data.title} ${n.data.course} ${body}`.toLowerCase(),
+  });
+}
+for (const p of posts) {
+  const body = plain((p as { body?: string }).body ?? "").slice(0, 320);
+  nodes.push({
+    id: `p:${p.id}`,
+    href: `/posts/${p.id}/`,
+    title: p.data.title,
+    kind: "posts",
+    label: kindMeta.posts.label,
+    color: kindMeta.posts.color,
+    course: "",
+    tags: p.data.tags,
+    q: `${p.data.title} ${p.data.tags.join(" ")} ${body}`.toLowerCase(),
+  });
+}
+for (const s of snippets) {
+  const body = plain((s as { body?: string }).body ?? "").slice(0, 320);
+  nodes.push({
+    id: `s:${s.id}`,
+    href: `/snippets/${s.id}/`,
+    title: s.data.title,
+    kind: "snippets",
+    label: kindMeta.snippets.label,
+    color: kindMeta.snippets.color,
+    course: "",
+    tags: s.data.tags,
+    q: `${s.data.title} ${s.data.tags.join(" ")} ${body}`.toLowerCase(),
+  });
+}
+
+/* 边：同课程（强）/ 共标签（弱）/ 同课程按时间相邻（学习路径） */
+const edges: { a: string; b: string; w: number }[] = [];
+const byCourse: Record<string, Node[]> = {};
+for (const nd of nodes) for (const t of nd.tags) (byCourse[t] ??= []).push(nd);
+const seen = new Set<string>();
+const addEdge = (a: string, b: string, w: number) => {
+  const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+  if (seen.has(key) || a === b) return;
+  seen.add(key);
+  edges.push({ a, b, w });
+};
+for (const t of Object.keys(byCourse)) {
+  const g = byCourse[t];
+  // 同课程的笔记按章节顺序连成「学习路径」链（而不是全互联成毛线团）；
+  // 这样点一个节点，高亮出来的就是它的上一节 / 下一节，桥梁关系才有意义。
+  const seq = [...g].sort((x, y) => x.title.localeCompare(y.title));
+  for (let i = 0; i < seq.length - 1; i++) addEdge(seq[i].id, seq[i + 1].id, 2);
+}
+// 共标签（文章 / 代码之间，以及笔记之间跨章节的知识点呼应）。注意：
+// 同课程的两条直接跳过，否则 15 篇同一门课的笔记会全互联成毛线团；
+// 它们已经按章节顺序连成链了，这里只连真正跨内容的共标签。
+for (let i = 0; i < nodes.length; i++)
+  for (let j = i + 1; j < nodes.length; j++) {
+    const shared = nodes[i].tags.filter((t) => nodes[j].tags.includes(t));
+    if (!shared.length) continue;
+    if (nodes[i].course && nodes[i].course === nodes[j].course) continue;
+    addEdge(nodes[i].id, nodes[j].id, 1);
+  }
+
+const courses = [...new Set(nodes.flatMap((n) => n.tags))].sort();
+const dataStr = JSON.stringify({ nodes, edges, courses })
+  .replace(/</g, "\\u003c")
+  .replace(/>/g, "\\u003e");
+---
+
+<Base title="知识库 · Knowledge Base">
+  <div class="wrap kb">
+    <header class="page-head">
+      <h1 class="page-title">知识库 <span class="en">/ Knowledge Base</span></h1>
+      <p class="page-sub">快速索引 + 知识点之间的桥。搜得到，也连得上。</p>
+    </header>
+
+    <div class="kb-layout">
+      <aside class="kb-side">
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m16.5 16.5 4 4" stroke-linecap="round" />
+          </svg>
+          <input
+            type="search"
+            id="kbSearch"
+            placeholder="搜标题、课程、标签、正文…"
+            aria-label="搜索知识库"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="kb-filter">
+          <p class="kb-filter-cap">按课程 / 分类</p>
+          <div class="chips" id="kbCourses">
+            <button class="chip" data-course="*" aria-pressed="true">全部</button>
+            {courses.map((c) => <button class="chip" data-course={c} aria-pressed="false">{c}</button>)}
+          </div>
+        </div>
+
+        <div class="kb-filter">
+          <p class="kb-filter-cap">按类型</p>
+          <div class="chips" id="kbKinds">
+            <button class="chip" data-kind="all" aria-pressed="true">全部</button>
+            <button class="chip" data-kind="notes" aria-pressed="false">笔记</button>
+            <button class="chip" data-kind="posts" aria-pressed="false">文章</button>
+            <button class="chip" data-kind="snippets" aria-pressed="false">代码</button>
+          </div>
+        </div>
+
+        <p class="kb-hint" id="kbHint">点图里的圆点，会标出它的「相关笔记」。</p>
+      </aside>
+
+      <section class="kb-main">
+        <div class="kb-graph" id="kbGraph">
+          <svg id="kbSvg" viewBox="0 0 900 560" role="img" aria-label="知识点关系图">
+            <g id="kbEdges"></g>
+            <g id="kbNodes"></g>
+          </svg>
+        </div>
+
+        <div class="result-line" id="kbResult"></div>
+        <div class="cards stagger" id="kbCards">
+          {
+            nodes.map((nd, i) => (
+              <a
+                class="card"
+                href={nd.href}
+                data-id={nd.id}
+                data-kind={nd.kind}
+                data-course={nd.tags.join("|")}
+                data-q={nd.q.slice(0, 4000)}
+                style={`--i:${i % 6}`}
+              >
+                <div class="card-kicker">
+                  <span class="kind-dot" style={`--c:${nd.color}`} />
+                  {nd.label}
+                  <span class="sep">/</span>
+                  <span class="dim">{nd.tags.join(" · ")}</span>
+                </div>
+                <h3 class="card-title">{nd.title}</h3>
+                <div class="card-foot"><span>打开 →</span></div>
+              </a>
+            ))
+          }
+        </div>
+        <p class="empty" id="kbEmpty" hidden>没找着。换个词试试？</p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .kb-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  .kb-side {
+    position: sticky;
+    top: calc(var(--nav-h) + 16px);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .kb-filter-cap {
+    margin: 0 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    border: 1px solid var(--hairline);
+    background: var(--glass);
+    color: var(--ink-2);
+    border-radius: var(--pill);
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.18s;
+  }
+  .chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .chip[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .kb-hint {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .kb-graph {
+    background: var(--glass);
+    border: 1px solid var(--glass-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 8px;
+    backdrop-filter: blur(var(--blur));
+    margin-bottom: 22px;
+  }
+  #kbSvg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  #kbSvg .node circle {
+    cursor: pointer;
+    transition: 0.18s;
+  }
+  #kbSvg .node text {
+    font-size: 11px;
+    fill: var(--ink-2);
+    pointer-events: none;
+    font-family: var(--font-body);
+  }
+  #kbSvg .node.dim {
+    opacity: 0.18;
+  }
+  #kbSvg .node.sel circle {
+    stroke: var(--accent);
+    stroke-width: 3px;
+  }
+  #kbSvg .edge {
+    stroke: var(--hairline);
+    stroke-width: 1.2px;
+  }
+  #kbSvg .edge.strong {
+    stroke: rgba(91, 141, 239, 0.35);
+    stroke-width: 2px;
+  }
+  #kbSvg .edge.dim {
+    opacity: 0.06;
+  }
+  #kbSvg .edge.hot {
+    stroke: var(--accent);
+    stroke-width: 2.4px;
+  }
+  .result-line {
+    color: var(--ink-3);
+    font-size: 13px;
+    margin: 4px 2px 14px;
+  }
+  @media (max-width: 880px) {
+    .kb-layout {
+      grid-template-columns: 1fr;
+    }
+    .kb-side {
+      position: static;
+    }
+  }
+</style>
+
+<script define:vars={{ dataStr }}>
+  const DATA = JSON.parse(dataStr);
+  const { nodes, edges } = DATA;
+  const W = 900, H = 560;
+
+  // ---- 力导向布局 ----
+  const pos = new Map();
+  nodes.forEach((n, i) => {
+    const a = (i / nodes.length) * Math.PI * 2;
+    pos.set(n.id, {
+      x: W / 2 + Math.cos(a) * 220 + (Math.random() - 0.5) * 30,
+      y: H / 2 + Math.sin(a) * 220 + (Math.random() - 0.5) * 30,
+      vx: 0, vy: 0,
+    });
+  });
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ITER = reduce ? 1 : 420;
+  for (let it = 0; it < ITER; it++) {
+    for (let i = 0; i < nodes.length; i++) {
+      const a = pos.get(nodes[i].id);
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = pos.get(nodes[j].id);
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d = Math.hypot(dx, dy) || 0.01;
+        const f = 6200 / (d * d);
+        const ux = dx / d, uy = dy / d;
+        a.vx += ux * f; a.vy += uy * f;
+        b.vx -= ux * f; b.vy -= uy * f;
+      }
+      // 向心力
+      a.vx += (W / 2 - a.x) * 0.012;
+      a.vy += (H / 2 - a.y) * 0.012;
+    }
+    for (const e of edges) {
+      const a = pos.get(e.a), b = pos.get(e.b);
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d = Math.hypot(dx, dy) || 0.01;
+      const rest = e.w >= 2 ? 150 : 200;
+      const f = (d - rest) * 0.02;
+      const ux = dx / d, uy = dy / d;
+      a.vx += ux * f; a.vy += uy * f;
+      b.vx -= ux * f; b.vy -= uy * f;
+    }
+    for (const n of nodes) {
+      const p = pos.get(n.id);
+      p.vx *= 0.85; p.vy *= 0.85;
+      p.x += p.vx; p.y += p.vy;
+      p.x = Math.max(28, Math.min(W - 28, p.x));
+      p.y = Math.max(24, Math.min(H - 24, p.y));
+    }
+  }
+
+  // ---- 渲染 SVG ----
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const gEdges = document.getElementById("kbEdges");
+  const gNodes = document.getElementById("kbNodes");
+  const edgeEls = edges.map((e) => {
+    const el = document.createElementNS(SVGNS, "line");
+    el.setAttribute("class", "edge" + (e.w >= 2 ? " strong" : ""));
+    el.dataset.a = e.a; el.dataset.b = e.b;
+    gEdges.appendChild(el);
+    return el;
+  });
+  const nodeEls = nodes.map((n) => {
+    const g = document.createElementNS(SVGNS, "g");
+    g.setAttribute("class", "node");
+    g.dataset.id = n.id;
+    g.dataset.kind = n.kind;
+    g.dataset.course = n.tags.join("|");
+    const c = document.createElementNS(SVGNS, "circle");
+    c.setAttribute("r", n.kind === "notes" ? 9 : 7);
+    c.setAttribute("fill", n.color);
+    const t = document.createElementNS(SVGNS, "text");
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("dy", "-14");
+    t.textContent = n.title.length > 9 ? n.title.slice(0, 9) + "…" : n.title;
+    g.appendChild(c); g.appendChild(t);
+    g.addEventListener("click", () => select(n.id));
+    g.addEventListener("mouseenter", () => focusNode(n.id, true));
+    g.addEventListener("mouseleave", () => { if (!sel) clearFocus(); });
+    gNodes.appendChild(g);
+    return g;
+  });
+
+  function draw() {
+    edges.forEach((e, i) => {
+      const a = pos.get(e.a), b = pos.get(e.b);
+      const l = edgeEls[i];
+      l.setAttribute("x1", a.x); l.setAttribute("y1", a.y);
+      l.setAttribute("x2", b.x); l.setAttribute("y2", b.y);
+    });
+    nodes.forEach((n, i) => {
+      const p = pos.get(n.id);
+      const g = nodeEls[i];
+      g.setAttribute("transform", `translate(${p.x},${p.y})`);
+    });
+  }
+  draw();
+
+  // ---- 状态与筛选 ----
+  const state = { course: "*", kind: "all", q: "", sel: null };
+  let sel = null;
+  const cards = [...document.querySelectorAll("#kbCards .card")];
+  const search = document.getElementById("kbSearch");
+  const result = document.getElementById("kbResult");
+  const empty = document.getElementById("kbEmpty");
+
+  const neighbors = (id) =>
+    new Set(edges.filter((e) => e.a === id || e.b === id).map((e) => (e.a === id ? e.b : e.a)));
+
+  function match(el) {
+    if (state.kind !== "all" && el.dataset.kind !== state.kind) return false;
+    if (state.course !== "*" && !(el.dataset.course || "").split("|").includes(state.course)) return false;
+    if (state.q && !(el.dataset.q || "").includes(state.q)) return false;
+    return true;
+  }
+  function apply() {
+    const vis = cards.filter(match);
+    if (state.sel) {
+      const nb = neighbors(state.sel);
+      cards.forEach((el) => {
+        el.hidden = !(el.dataset.id === state.sel || nb.has(el.dataset.id));
+      });
+    } else {
+      cards.forEach((el) => { el.hidden = !vis.includes(el); });
+    }
+    const shown = cards.filter((el) => !el.hidden);
+    result.textContent = `共 ${shown.length} 条` + (state.sel ? "（含相关笔记）" : "");
+    empty.hidden = shown.length > 0;
+  }
+
+  function focusNode(id, hover) {
+    const nb = neighbors(id);
+    nodeEls.forEach((g) => {
+      const isRel = g.dataset.id === id || nb.has(g.dataset.id);
+      g.classList.toggle("dim", !isRel);
+      g.classList.toggle("sel", g.dataset.id === id);
+    });
+    edgeEls.forEach((l) => {
+      const hot = l.dataset.a === id || l.dataset.b === id;
+      l.classList.toggle("dim", !hot);
+      l.classList.toggle("hot", hot);
+    });
+    if (hover) {
+      cards.forEach((el) => {
+        const isRel = el.dataset.id === id || nb.has(el.dataset.id);
+        el.style.opacity = isRel ? "1" : "0.35";
+      });
+    }
+  }
+  function clearFocus() {
+    nodeEls.forEach((g) => g.classList.remove("dim", "sel"));
+    edgeEls.forEach((l) => l.classList.remove("dim", "hot"));
+    cards.forEach((el) => (el.style.opacity = ""));
+  }
+  function select(id) {
+    state.sel = state.sel === id ? null : id;
+    if (state.sel) focusNode(state.sel, false);
+    else clearFocus();
+    apply();
+  }
+
+  // 筛选交互
+  document.getElementById("kbCourses").querySelectorAll(".chip").forEach((b) =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#kbCourses .chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      state.course = b.dataset.course;
+      apply();
+    })
+  );
+  document.getElementById("kbKinds").querySelectorAll(".chip").forEach((b) =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#kbKinds .chip").forEach((c) => c.setAttribute("aria-pressed", "false"));
+      b.setAttribute("aria-pressed", "true");
+      state.kind = b.dataset.kind;
+      apply();
+    })
+  );
+  let deb = 0;
+  search.addEventListener("input", () => {
+    clearTimeout(deb);
+    deb = setTimeout(() => {
+      state.q = (search.value || "").trim().toLowerCase();
+      apply();
+    }, 150);
+  });
+
+  // 起始页 ?q= 带词进来
+  const qp = new URLSearchParams(location.search).get("q");
+  if (qp) { search.value = qp; state.q = qp.toLowerCase(); }
+  apply();
+</script>

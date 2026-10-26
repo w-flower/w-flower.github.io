@@ -1,0 +1,469 @@
+---
+/**
+ * ============================================================
+ *  ⌘K 命令面板
+ * ------------------------------------------------------------
+ *  抄 GitHub / VS Code 的命令面板。回答的是「我现在想干什么」，
+ *  而不是「我想搜什么」——所以它同时管搜索和跳转。
+ *
+ *  为什么值得做：
+ *  列表页的搜索框只能搜当前这一页的卡片。文章多了以后，
+ *  「记得写过但想不起在哪篇」是常态，这时候需要的是全站搜索 + 直接跳。
+ *
+ *  和原搜索框共存，不替代：
+ *    /    → 搜本页卡片（已在 ContentList 里）
+ *    ⌘K   → 搜全站 + 跳转（这里）
+ *  两个键不冲突，鼠标用户点面板右下角的按钮也能唤起。
+ *
+ *  索引数据在构建期一次性算好内联进页面，不额外发请求。
+ *  内容量到几百篇之前，这比任何客户端索引方案都快且简单。
+ * ============================================================
+ */
+import { getCollection } from "astro:content";
+import { copy } from "../copy";
+import { byDateDesc, isPublished } from "../lib/format";
+
+interface Row {
+  href: string;
+  title: string;
+  kind: string;
+  label: string;
+  color: string;
+  sub: string;
+  /** 小写全文，供匹配用 */
+  q: string;
+}
+
+const metaInfo: Record<string, { label: string; color: string }> = {
+  posts: { label: copy.kinds.posts, color: "#378ADD" },
+  notes: { label: copy.kinds.notes, color: "#5DCAA5" },
+  snippets: { label: copy.kinds.snippets, color: "#EF9F27" },
+  micro: { label: copy.kinds.micro, color: "#D4537E" },
+};
+
+const plain = (s = "") =>
+  s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*>+]\s+/gm, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const bodyOf = (e: unknown) => plain((e as { body?: string }).body ?? "");
+
+const rows: Row[] = [];
+
+for (const p of byDateDesc(
+  (await getCollection("posts")).filter((x) => isPublished(x.data))
+)) {
+  const b = bodyOf(p);
+  rows.push({
+    href: `/posts/${p.id}/`,
+    title: p.data.title,
+    kind: "posts",
+    ...metaInfo.posts,
+    sub: p.data.summary || b.slice(0, 70),
+    q: `${p.data.title} ${p.data.summary} ${p.data.tags.join(" ")} ${b}`.toLowerCase(),
+  });
+}
+for (const n of byDateDesc(
+  (await getCollection("notes")).filter((x) => isPublished(x.data))
+)) {
+  const b = bodyOf(n);
+  rows.push({
+    href: `/notes/${n.id}/`,
+    title: n.data.title,
+    kind: "notes",
+    ...metaInfo.notes,
+    sub: n.data.course,
+    q: `${n.data.title} ${n.data.course} ${b}`.toLowerCase(),
+  });
+}
+for (const s of byDateDesc(
+  (await getCollection("snippets")).filter((x) => isPublished(x.data))
+)) {
+  const b = bodyOf(s);
+  rows.push({
+    href: `/snippets/${s.id}/`,
+    title: s.data.title,
+    kind: "snippets",
+    ...metaInfo.snippets,
+    sub: s.data.std,
+    q: `${s.data.title} ${s.data.std} ${s.data.tags.join(" ")} ${b}`.toLowerCase(),
+  });
+}
+for (const m of byDateDesc(
+  (await getCollection("micro")).filter((x) => isPublished(x.data))
+)) {
+  const b = bodyOf(m);
+  rows.push({
+    href: "/micro/",
+    title: b.slice(0, 40) || "随笔",
+    kind: "micro",
+    ...metaInfo.micro,
+    sub: m.data.mood ?? "",
+    /* 随笔没有链接，只能跳到随笔列表，所以 q 里不带 href 区分 */
+    q: `${b} ${m.data.mood ?? ""}`.toLowerCase(),
+  });
+}
+
+/* 常驻操作。输入里出现这些词时也参与匹配 */
+const actions = [
+  { label: copy.palette.actions.home, href: "/", q: "首页 home 主页 index" },
+  { label: copy.palette.actions.notes, href: "/notes/", q: "笔记 notes 学习" },
+  {
+    label: copy.palette.actions.snippets,
+    href: "/snippets/",
+    q: "代码 snippets code 运行",
+  },
+  { label: copy.palette.actions.micro, href: "/micro/", q: "随笔 micro 想法" },
+  { label: copy.palette.actions.archive, href: "/archive/", q: "归档 archive 全部" },
+  { label: copy.palette.actions.about, href: "/about/", q: "关于 about 简介" },
+  { label: copy.palette.actions.danmaku, href: "/danmaku/", q: "弹幕 danmaku 彩蛋" },
+  { label: copy.palette.actions.rss, href: "/rss.xml", q: "rss 订阅 feed" },
+];
+
+/* 索引量大时全量内联会撑大 HTML，所以只内联精简字段：
+   q 截到 400 字符足够匹配，sub 截到 60。构建时会打印实际体积。 */
+const index = [
+  ...rows.map((r) => ({
+    t: r.title,
+    h: r.href,
+    k: r.kind,
+    l: r.label,
+    c: r.color,
+    s: r.sub.slice(0, 60),
+    q: r.q.slice(0, 400),
+  })),
+  ...actions.map((a) => ({
+    t: a.label,
+    h: a.href,
+    k: "action",
+    l: "",
+    c: "",
+    s: "",
+    q: a.q.toLowerCase(),
+  })),
+];
+---
+
+<div class="cmdk" id="cmdk" hidden>
+  <div class="cmdk-scrim" id="cmdkScrim"></div>
+
+  <div
+    class="cmdk-panel glass"
+    role="dialog"
+    aria-modal="true"
+    aria-label={copy.palette.placeholder}
+  >
+    <div class="cmdk-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m16.5 16.5 4 4" stroke-linecap="round"></path>
+      </svg>
+      <input
+        type="text"
+        id="cmdkInput"
+        placeholder={copy.palette.placeholder}
+        aria-label={copy.palette.placeholder}
+        autocomplete="off"
+        spellcheck="false"
+        aria-controls="cmdkList"
+      />
+      <button type="button" class="cmdk-x" id="cmdkX" aria-label="关闭">Esc</button>
+    </div>
+
+    <div class="cmdk-list" id="cmdkList" role="listbox" aria-label="搜索结果"></div>
+
+    <p class="cmdk-empty" id="cmdkEmpty" hidden></p>
+
+    <div class="cmdk-foot">
+      <span><kbd>{copy.palette.keys.up}</kbd><kbd>{copy.palette.keys.down}</kbd> 选</span>
+      <span><kbd>{copy.palette.keys.enter}</kbd> 打开</span>
+      <span><kbd>{copy.palette.keys.close}</kbd> 关</span>
+      <span class="cmdk-count" id="cmdkCount"></span>
+    </div>
+  </div>
+</div>
+
+<button
+  type="button"
+  class="cmdk-fab"
+  id="cmdkFab"
+  aria-label={copy.palette.placeholder}
+  title={copy.palette.placeholder}
+>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+    <circle cx="11" cy="11" r="7"></circle>
+    <path d="m16.5 16.5 4 4" stroke-linecap="round"></path>
+  </svg>
+  <kbd>{copy.palette.trigger}</kbd>
+</button>
+
+<script define:vars={{ index, copy }}>
+  /* 元素引用 / 开合函数 / 选中态提到模块级：window 在换页后保留，
+     全局 ⌘K 监听只绑一次，闭包引用这些模块级变量，换页后由 setupPalette 刷新。 */
+  let root, input, list, fab;
+  let open, close;
+  let rows = [], sel = 0, lastFocus = null;
+
+  function setupPalette() {
+    root = document.getElementById("cmdk");
+    const scrim = document.getElementById("cmdkScrim");
+    input = document.getElementById("cmdkInput");
+    list = document.getElementById("cmdkList");
+    const emptyEl = document.getElementById("cmdkEmpty");
+    const countEl = document.getElementById("cmdkCount");
+    fab = document.getElementById("cmdkFab");
+    const xBtn = document.getElementById("cmdkX");
+    if (!root || !input || !list) return;
+
+    const LIMIT = 24;
+    sel = 0;
+    lastFocus = null;
+
+    /* 命中处高亮。只包标题，别把正文也切 span —— 正文长，
+       切出来的 DOM 反而更慢。高亮就够指路了。 */
+    const mark = (text, q) => {
+      const frag = document.createDocumentFragment();
+      if (!q) {
+        frag.appendChild(document.createTextNode(text));
+        return frag;
+      }
+      const low = text.toLowerCase();
+      let from = 0;
+      let at = low.indexOf(q);
+      while (at !== -1) {
+        if (at > from) {
+          frag.appendChild(document.createTextNode(text.slice(from, at)));
+        }
+        const b = document.createElement("b");
+        b.className = "cmdk-hit";
+        b.textContent = text.slice(at, at + q.length);
+        frag.appendChild(b);
+        from = at + q.length;
+        at = low.indexOf(q, from);
+      }
+      if (from < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(from)));
+      }
+      return frag;
+    };
+
+    /* 多关键词 AND：空格分词，全中才算命中。顺序无所谓，
+       所以搜「树 插入」能命中「红黑树插入」 */
+    const score = (r, terms) => {
+      const hay = r.q || "";
+      const title = r.t.toLowerCase();
+      for (const t of terms) {
+        if (!hay.includes(t)) return -1;
+      }
+      let s = 0;
+      for (const t of terms) {
+        /* 标题命中比正文命中值钱得多，排序时要体现 */
+        if (title.includes(t)) s += title.startsWith(t) ? 12 : 8;
+        if (r.s && r.s.toLowerCase().includes(t)) s += 3;
+      }
+      /* 越短越可能是要找的那篇，同分时排前面 */
+      return s - Math.min(4, r.q.length / 400);
+    };
+
+    const render = () => {
+      const q = input.value.trim().toLowerCase();
+      const terms = q.split(/\s+/).filter(Boolean);
+
+      if (!terms.length) {
+        /* 空输入这一屏是「最近写的」+「快速跳转」，比空白有用得多。
+           micro 不进最近区：它没有独立详情页，全跳 /micro/，
+           占掉 3 个位置却给不出 3 个不同去处。
+           注意两个分支都要包成 {r, s} —— 下面统一按 .r 取，不包会读到 undefined。 */
+        const recent = index
+          .filter((r) => r.k !== "action" && r.k !== "micro")
+          .slice(0, 8);
+        const acts = index.filter((r) => r.k === "action");
+        rows = [...recent, ...acts]
+          .slice(0, LIMIT)
+          .map((r) => ({ r, s: 0 }));
+      } else {
+        rows = index
+          .map((r) => ({ r, s: score(r, terms) }))
+          .filter((x) => x.s >= 0)
+          .sort((a, b) => b.s - a.s)
+          .slice(0, LIMIT);
+      }
+
+      sel = 0;
+      list.textContent = "";
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i].r;
+        const isAction = r.k === "action";
+        const el = document.createElement("a");
+        el.className = "cmdk-row" + (isAction ? " is-action" : "");
+        el.href = r.h;
+        el.setAttribute("role", "option");
+        el.dataset.i = String(i);
+        el.id = `cmdk-r${i}`;
+
+        if (!isAction && r.c) {
+          const dot = document.createElement("span");
+          dot.className = "cmdk-dot";
+          dot.style.setProperty("--c", r.c);
+          el.appendChild(dot);
+        }
+
+        const main = document.createElement("span");
+        main.className = "cmdk-main";
+        const t = document.createElement("span");
+        t.className = "cmdk-t";
+        t.appendChild(mark(r.t, terms[0] ?? ""));
+        main.appendChild(t);
+        if (r.s) {
+          const s = document.createElement("span");
+          s.className = "cmdk-s";
+          s.textContent = r.s;
+          main.appendChild(s);
+        }
+        el.appendChild(main);
+
+        if (!isAction && r.l) {
+          const tag = document.createElement("span");
+          tag.className = "cmdk-kind";
+          tag.textContent = r.l;
+          el.appendChild(tag);
+        }
+
+        list.appendChild(el);
+      }
+
+      const q2 = input.value.trim();
+      if (emptyEl) {
+        const none = rows.length === 0 && q2.length > 0;
+        emptyEl.hidden = !none;
+        if (none) {
+          emptyEl.textContent =
+            copy.palette.empty.replace("{q}", q2) + copy.palette.emptyHint;
+        }
+      }
+      if (countEl) {
+        countEl.textContent = q2 ? `${rows.length}` : "";
+      }
+      paint();
+    };
+
+    const paint = () => {
+      const kids = Array.from(list.children);
+      kids.forEach((el, i) => {
+        const on = i === sel;
+        el.classList.toggle("on", on);
+        el.setAttribute("aria-selected", String(on));
+      });
+      /* 键盘上下时把选中项滚进可视区。scrollIntoView 用 instant，
+       否则会跟面板自己的入场动画打架，看着像卡了一下 */
+      kids[sel]?.scrollIntoView({ block: "nearest", behavior: "instant" });
+      input.setAttribute("aria-activedescendant", `cmdk-r${sel}`);
+    };
+
+    open = () => {
+      if (!root.hidden) return;
+      lastFocus = document.activeElement;
+      root.hidden = false;
+      /* 下一帧才加 open 类，让浏览器先渲染出初始状态，
+         否则入场动画的第一帧就跳过了 */
+      requestAnimationFrame(() => root.classList.add("on"));
+      /* 浮标让位，不然它会浮在遮罩上面，看着像两层 UI 打架 */
+      fab?.classList.add("is-away");
+      document.documentElement.style.overflow = "hidden";
+      render();
+      input.focus();
+      input.select();
+    };
+
+    close = () => {
+      if (root.hidden) return;
+      root.classList.remove("on");
+      fab?.classList.remove("is-away");
+      document.documentElement.style.overflow = "";
+      input.value = "";
+      /* 等退场动画走完再 hidden，不然是硬切，动画等于没做 */
+      window.setTimeout(() => {
+        root.hidden = true;
+      }, 180);
+      /* 焦点还给原处，否则键盘用户会被丢回 body */
+      if (lastFocus instanceof HTMLElement) lastFocus.focus();
+      lastFocus = null;
+    };
+
+    /* ---- 事件（元素监听：换页后元素已换新，每次重绑，旧元素随 body 销毁不会重复） ---- */
+    input.addEventListener("input", render);
+
+    list.addEventListener("click", (e) => {
+      const row = e.target.closest?.(".cmdk-row");
+      if (row instanceof HTMLElement) {
+        /* 不再 preventDefault + location.href（那会触发整页刷新，
+           与 ClientRouter 的平滑换页/视图过渡冲突）。这里只关面板，
+           让 <a href> 的默认点击交给 Astro ClientRouter 接管，走客户端换页。 */
+        close();
+      }
+    });
+
+    /* 指针划过就切换选中，否则鼠标和键盘的选中会各说各话 */
+    list.addEventListener("pointermove", (e) => {
+      const row = e.target.closest?.(".cmdk-row");
+      if (row instanceof HTMLElement) {
+        const i = Number(row.dataset.i);
+        if (Number.isFinite(i) && i !== sel) {
+          sel = i;
+          paint();
+        }
+      }
+    });
+
+    scrim?.addEventListener("click", close);
+    xBtn?.addEventListener("click", close);
+    fab?.addEventListener("click", () => (root.hidden ? open() : close()));
+
+    /* ⌘K 全局快捷键：document 级，只在首次绑一次（window 换页后保留）。
+       闭包引用模块级 root/open/close/rows/sel，换页后由 setupPalette 刷新。 */
+    if (!window.__cmdKeyBound) {
+      window.__cmdKeyBound = true;
+      document.addEventListener("keydown", (e) => {
+        if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          if (root) (root.hidden ? open() : close());
+          return;
+        }
+        if (!root || root.hidden) return;
+
+        if (e.key === "Escape") {
+          e.preventDefault();
+          close();
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (rows.length) sel = (sel + 1) % rows.length;
+          paint();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (rows.length) sel = (sel - 1 + rows.length) % rows.length;
+          paint();
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          sel = 0;
+          paint();
+        } else if (e.key === "End") {
+          e.preventDefault();
+          sel = Math.max(0, rows.length - 1);
+          paint();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          const href = list.children[sel]?.getAttribute("href");
+          if (href) location.href = href;
+        }
+      });
+    }
+  }
+  document.addEventListener("astro:page-load", setupPalette);
+</script>

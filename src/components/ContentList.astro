@@ -1,0 +1,464 @@
+---
+/**
+ * 内容列表页骨架（左栏筛选 + 搜索 + 卡片格 + 分页 + 悬停浮层）
+ *   notes / snippets / micro / archive 都用这一个
+ *   scope: "all" | "posts" | "notes" | "snippets" | "micro"
+ */
+import { getCollection } from "astro:content";
+import Sidebar from "./Sidebar.astro";
+import HoverCard from "./HoverCard.astro";
+import { copy } from "../copy";
+import { byDateDesc, fmtDate, isPublished } from "../lib/format";
+
+interface Props {
+  scope?: "all" | "posts" | "notes" | "snippets" | "micro";
+  heading?: string;
+  sub?: string;
+}
+
+const { scope = "all", heading = "", sub = "" } = Astro.props;
+const want = (k: string) => scope === "all" || scope === k;
+
+const postsAll = byDateDesc(
+  (await getCollection("posts")).filter((p) => isPublished(p.data))
+);
+const notesAll = byDateDesc(
+  (await getCollection("notes")).filter((p) => isPublished(p.data))
+);
+const snippetsAll = byDateDesc(
+  (await getCollection("snippets")).filter((p) => isPublished(p.data))
+);
+const microsAll = byDateDesc(
+  (await getCollection("micro")).filter((p) => isPublished(p.data))
+);
+
+const posts = want("posts") ? postsAll : [];
+const notes = want("notes") ? notesAll : [];
+const snippets = want("snippets") ? snippetsAll : [];
+const micros = want("micro") ? microsAll : [];
+
+const plain = (s = "") =>
+  s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*>+]\s+/gm, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const bodyOf = (e: unknown) => plain((e as { body?: string }).body ?? "");
+const readTime = (len: number) => Math.max(1, Math.round(len / 350));
+
+type Kind = "posts" | "notes" | "snippets" | "micro";
+
+const metaInfo: Record<Kind, { label: string; color: string }> = {
+  posts: { label: copy.kinds.posts, color: "#378ADD" },
+  notes: { label: copy.kinds.notes, color: "#5DCAA5" },
+  snippets: { label: copy.kinds.snippets, color: "#EF9F27" },
+  micro: { label: copy.kinds.micro, color: "#D4537E" },
+};
+
+interface Item {
+  href: string;
+  kind: Kind;
+  label: string;
+  color: string;
+  title: string;
+  summary: string;
+  kicker: string;
+  tags: string[];
+  date: Date;
+  metaText: string;
+  q: string;
+}
+
+const items: Item[] = [];
+
+for (const p of posts) {
+  const body = bodyOf(p);
+  const len = plain(p.data.summary).length + body.length;
+  items.push({
+    href: `/posts/${p.id}/`,
+    kind: "posts",
+    ...metaInfo.posts,
+    title: p.data.title,
+    summary: p.data.summary,
+    kicker: p.data.tags.join(" · "),
+    tags: p.data.tags,
+    date: p.data.date,
+    metaText: `${len} 字 · ${copy.hoverCard.readTime.replace("{n}", String(readTime(len)))}`,
+    q: `${p.data.title} ${p.data.summary} ${p.data.tags.join(" ")} ${body}`.toLowerCase(),
+  });
+}
+
+for (const n of notes) {
+  const body = bodyOf(n);
+  const nTags = n.data.tags.length ? n.data.tags : [n.data.course];
+  const summary =
+    n.data.summary || body.slice(0, 110) || copy.noteStatus[n.data.status];
+  items.push({
+    href: `/notes/${n.id}/`,
+    kind: "notes",
+    ...metaInfo.notes,
+    title: n.data.title,
+    summary,
+    kicker: `${n.data.course} · ${copy.noteStatus[n.data.status]}`,
+    tags: nTags,
+    date: n.data.date,
+    metaText: `${copy.hoverCard.words.replace("{n}", String(body.length))} · ${copy.noteStatus[n.data.status]}`,
+    q: `${n.data.title} ${n.data.course} ${summary} ${nTags.join(" ")} ${body}`.toLowerCase(),
+  });
+}
+
+for (const s of snippets) {
+  const body = bodyOf(s);
+  items.push({
+    href: `/snippets/${s.id}/`,
+    kind: "snippets",
+    ...metaInfo.snippets,
+    title: s.data.title,
+    summary: body.slice(0, 110) || `${s.data.std} 代码片段`,
+    kicker:
+      s.data.std + (s.data.tags.length ? ` · ${s.data.tags.join(" · ")}` : ""),
+    tags: s.data.tags,
+    date: s.data.date,
+    metaText: `${copy.hoverCard.words.replace("{n}", String(body.length))} · ${s.data.std}`,
+    q: `${s.data.title} ${s.data.std} ${s.data.tags.join(" ")} ${body}`.toLowerCase(),
+  });
+}
+
+for (const m of micros) {
+  const body = bodyOf(m);
+  if (!body) continue;
+  items.push({
+    href: "/micro/",
+    kind: "micro",
+    ...metaInfo.micro,
+    title: body.slice(0, 26) + (body.length > 26 ? "…" : ""),
+    summary: body.length > 26 ? body.slice(26, 150) : body,
+    kicker: m.data.mood ? `心情 ${m.data.mood}` : "",
+    tags: [],
+    date: m.data.date,
+    metaText: `${copy.hoverCard.words.replace("{n}", String(body.length))} · 随笔`,
+    q: body.toLowerCase(),
+  });
+}
+
+items.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+const tagCount = new Map<string, number>();
+for (const it of items) {
+  for (const t of it.tags) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+}
+const allTags = [...tagCount.entries()]
+  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  .slice(0, 30)
+  .map(([t]) => t);
+
+const counts = {
+  posts: postsAll.length,
+  notes: notesAll.length,
+  snippets: snippetsAll.length,
+  micro: microsAll.length,
+};
+
+const PER_PAGE = 6;
+const showKinds = scope === "all";
+---
+
+<div class="wrap">
+  {
+    heading && (
+      <header class="page-head">
+        <h1 class="page-title">{heading}</h1>
+        {sub && <p class="page-sub">{sub}</p>}
+      </header>
+    )
+  }
+
+  <div class="layout">
+    <Sidebar counts={counts} tags={allTags} showKinds={showKinds} current={scope} />
+
+    <div class="content">
+      <label class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m16.5 16.5 4 4" stroke-linecap="round" />
+        </svg>
+        <input
+          type="search"
+          id="searchInput"
+          placeholder={copy.search.placeholder}
+          aria-label={copy.search.placeholder}
+          autocomplete="off"
+        />
+        {copy.search.hint && <kbd data-hint>{copy.search.hint}</kbd>}
+      </label>
+
+      <div class="result-line" id="resultLine">
+        {copy.search.count.replace("{n}", String(items.length))}
+      </div>
+
+      <div class="cards stagger" id="cards" data-reveal>
+        {
+          items.map((it, i) => (
+            <a
+              class="card"
+              href={it.href}
+              data-hc
+              data-kind={it.kind}
+              data-kind-label={it.label}
+              data-color={it.color}
+              data-title={it.title}
+              data-summary={it.summary}
+              data-date={fmtDate(it.date)}
+              data-tags={it.tags.join(",")}
+              data-tags-raw={it.tags.join("|")}
+              data-meta={it.metaText}
+              data-q={it.q.slice(0, 4000)}
+              style={`--i:${i % PER_PAGE}`}
+            >
+              <div class="card-kicker">
+                <span class="kind-dot" style={`--c:${it.color}`} />
+                {it.label}
+                {it.kicker && <span class="sep">/</span>}
+                {it.kicker && <span class="dim">{it.kicker}</span>}
+              </div>
+              <h3 class="card-title">{it.title}</h3>
+              {it.summary && <p class="card-desc">{it.summary}</p>}
+              <div class="card-foot">
+                <span>{fmtDate(it.date)}</span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+
+      <p class="empty" id="empty" hidden>
+        {copy.search.empty}
+      </p>
+
+      <nav class="pager" id="pager" aria-label="分页" />
+    </div>
+  </div>
+</div>
+
+<HoverCard />
+
+<script define:vars={{ PER_PAGE }}>
+  let clInput = null, clState = { kind: "all", tag: "*", q: "", page: 1 }, clApply = null, clSideList = null, clThumb = null;
+  let clKeyBound = false, clResizeBound = false;
+
+  function setupList() {
+    const cards = [...document.querySelectorAll(".card[data-hc]")];
+  const pager = document.getElementById("pager");
+  const resultLine = document.getElementById("resultLine");
+  const emptyEl = document.getElementById("empty");
+  const input = document.getElementById("searchInput");
+    clInput = input;
+  const sideList = document.getElementById("sideList");
+  const thumb = document.getElementById("sideThumb");
+    clSideList = sideList;
+    clThumb = thumb;
+  const countTpl = resultLine ? resultLine.textContent || "" : "";
+
+  const state = { kind: "all", tag: "*", q: "", page: 1 };
+    clState = state;
+  let filtered = cards;
+  let totalPages = 1;
+
+  // 从 /tags/ 点进来：?tag=xxx 直接筛到这个标签
+  const qTag = new URLSearchParams(location.search).get("tag");
+  if (qTag) {
+    state.tag = qTag;
+    const hit = document.querySelector(
+      '.chip[data-tag="' + qTag.replace(/["\\]/g, "\\$&") + '"]',
+    );
+    if (hit) {
+      document
+        .querySelectorAll(".chip[data-tag]")
+        .forEach((c) => c.setAttribute("aria-pressed", "false"));
+      hit.setAttribute("aria-pressed", "true");
+    }
+  }
+
+  const match = (el, s) => {
+    if (s.kind !== "all" && el.dataset.kind !== s.kind) return false;
+    if (s.tag !== "*" && !(el.dataset.tagsRaw || "").split("|").includes(s.tag))
+      return false;
+    if (s.q && !(el.dataset.q || "").includes(s.q)) return false;
+    return true;
+  };
+
+  const countText = (n) => {
+    const m = countTpl.match(/^(.*?)\{n\}(.*)$/);
+    return m ? m[1] + n + m[2] : countTpl.replace(/\d+/, String(n));
+  };
+
+  const buildPager = () => {
+    if (!pager) return;
+    pager.innerHTML = "";
+    if (totalPages <= 1) return;
+
+    const mkBtn = (label, page, opts) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      if (opts.current) b.setAttribute("aria-current", "true");
+      if (opts.disabled) b.disabled = true;
+      if (!opts.disabled && !opts.current) {
+        b.addEventListener("click", () => {
+          state.page = page;
+          clApply(true);
+        });
+      }
+      return b;
+    };
+
+    pager.appendChild(
+      mkBtn("‹", Math.max(1, state.page - 1), { disabled: state.page === 1 })
+    );
+
+    const nums = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) nums.push(i);
+    } else {
+      nums.push(1);
+      if (state.page > 3) nums.push("...");
+      for (
+        let i = Math.max(2, state.page - 1);
+        i <= Math.min(totalPages - 1, state.page + 1);
+        i++
+      )
+        nums.push(i);
+      if (state.page < totalPages - 2) nums.push("...");
+      nums.push(totalPages);
+    }
+
+    for (const n of nums) {
+      if (n === "...") {
+        const s = document.createElement("span");
+        s.className = "gap";
+        s.textContent = "…";
+        pager.appendChild(s);
+      } else {
+        pager.appendChild(mkBtn(String(n), n, { current: n === state.page }));
+      }
+    }
+
+    pager.appendChild(
+      mkBtn("›", Math.min(totalPages, state.page + 1), {
+        disabled: state.page === totalPages,
+      })
+    );
+  };
+
+  clApply = (scroll) => {
+    filtered = cards.filter((el) => match(el, state));
+    totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+    if (state.page > totalPages) state.page = totalPages;
+    const start = (state.page - 1) * PER_PAGE;
+    const pageItems = filtered.slice(start, start + PER_PAGE);
+
+    cards.forEach((el) => {
+      const idx = pageItems.indexOf(el);
+      el.hidden = idx < 0;
+      if (idx >= 0) el.style.setProperty("--i", String(idx));
+    });
+
+    if (resultLine) resultLine.textContent = countText(filtered.length);
+    if (emptyEl) emptyEl.hidden = filtered.length > 0;
+    buildPager();
+
+    if (scroll) {
+      document
+        .getElementById("cards")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const moveThumb = (btn) => {
+    if (!thumb || !sideList || !btn) return;
+    const a = btn.getBoundingClientRect();
+    const b = sideList.getBoundingClientRect();
+    thumb.style.height = a.height + "px";
+    thumb.style.transform = "translateY(" + (a.top - b.top) + "px)";
+  };
+
+  sideList?.querySelectorAll("button[data-kind]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      sideList
+        .querySelectorAll("button[data-kind]")
+        .forEach((b) => b.setAttribute("aria-selected", "false"));
+      btn.setAttribute("aria-selected", "true");
+      moveThumb(btn);
+      state.kind = btn.dataset.kind || "all";
+      state.page = 1;
+      clApply(false);
+    });
+  });
+
+  document.querySelectorAll(".chip[data-tag]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document
+        .querySelectorAll(".chip[data-tag]")
+        .forEach((c) => c.setAttribute("aria-pressed", "false"));
+      chip.setAttribute("aria-pressed", "true");
+      state.tag = chip.dataset.tag || "*";
+      state.page = 1;
+      clApply(false);
+    });
+  });
+
+  let debounce = 0;
+  input?.addEventListener("input", () => {
+    window.clearTimeout(debounce);
+    debounce = window.setTimeout(() => {
+      state.q = (input.value || "").trim().toLowerCase();
+      state.page = 1;
+      clApply(false);
+    }, 150);
+  });
+
+  if (!clKeyBound) {
+    clKeyBound = true;
+    document.addEventListener("keydown", (e) => {
+      const tag = (e.target && e.target.tagName) || "";
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        clInput?.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === clInput) {
+        clInput.value = "";
+        clState.q = "";
+        clState.page = 1;
+        clApply(false);
+        clInput.blur();
+      }
+    });
+  }
+
+  requestAnimationFrame(() => {
+    const cur = sideList?.querySelector('button[aria-selected="true"]');
+    if (cur) moveThumb(cur);
+    clApply(false);
+  });
+
+  if (!clResizeBound) {
+    clResizeBound = true;
+    window.addEventListener("resize", () => {
+      const cur = clSideList?.querySelector('button[aria-selected="true"]');
+      if (cur && clThumb && clSideList) {
+        const a = cur.getBoundingClientRect();
+        const b = clSideList.getBoundingClientRect();
+        clThumb.style.height = a.height + "px";
+        clThumb.style.transform = "translateY(" + (a.top - b.top) + "px)";
+      }
+    });
+  }
+  }
+  document.addEventListener("astro:page-load", setupList);
+</script>

@@ -1,0 +1,43 @@
+---
+/**
+ * 背景三层：渐变底 + 顶部图片/光晕 + 底部浅蓝水波
+ * 换背景图：改 global.css 里 .bg-img 的 background-image
+ */
+
+const W = 2880;
+const H = 240;
+
+function wavePath(w: number, h: number, amp: number, seg: number) {
+  let d = `M0 ${h * 0.52}`;
+  for (let x = 0; x < w; x += seg) {
+    d += ` q ${seg / 4} ${-amp} ${seg / 2} 0 t ${seg / 2} 0`;
+  }
+  return `${d} L${w} ${h} L0 ${h} Z`;
+}
+
+const waves = [
+  { cls: "wave-1", d: wavePath(W, H, 26, 160), fill: "#79b8ff", op: 0.3, h: "100%" },
+  { cls: "wave-2", d: wavePath(W, H, 18, 200), fill: "#5b8def", op: 0.15, h: "76%" },
+  { cls: "wave-3", d: wavePath(W, H, 32, 260), fill: "#a9cdf5", op: 0.22, h: "54%" },
+];
+---
+
+<div class="bg-layer" aria-hidden="true">
+  <div class="bg-img"></div>
+  <div class="bg-noise"></div>
+  <div class="bg-waves">
+    {
+      waves.map((w) => (
+        <div class={`wave ${w.cls}`} style={`height:${w.h}`}>
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d={w.d} fill={w.fill} fill-opacity={w.op} />
+          </svg>
+        </div>
+      ))
+    }
+  </div>
+</div>

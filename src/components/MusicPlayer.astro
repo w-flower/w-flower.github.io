@@ -1,0 +1,113 @@
+---
+/**
+ * 音乐播放器（首页左下角）
+ * 歌单在 src/music.ts
+ */
+import { copy } from "../copy";
+import { tracks } from "../music";
+
+const first = tracks[0];
+const has = tracks.length > 0;
+---
+
+<div class="music glass" id="music" data-count={tracks.length}>
+  <div class="music-cover" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="2.4" />
+    </svg>
+  </div>
+
+  <div class="music-info">
+    <span class="music-label">{copy.music.label}</span>
+    <span class="music-title" id="musicTitle">
+      {has ? first.title : copy.music.empty}
+    </span>
+    {has && first.artist && <span class="music-artist">{first.artist}</span>}
+  </div>
+
+  <div class="music-ctrl">
+    <button type="button" id="musicPrev" aria-label={copy.music.prev} disabled={!has}>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M7 6h2v12H7zM19 6v12l-9-6z" />
+      </svg>
+    </button>
+    <button type="button" class="music-play" id="musicPlay" aria-label={copy.music.play} disabled={!has}>
+      <svg class="ic-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M8 5.5v13l11-6.5z" />
+      </svg>
+      <svg class="ic-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+      </svg>
+    </button>
+    <button type="button" id="musicNext" aria-label={copy.music.next} disabled={!has}>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M15 6h2v12h-2zM5 6l9 6-9 6z" />
+      </svg>
+    </button>
+  </div>
+
+  {!has && <p class="music-hint">{copy.music.hint}</p>}
+
+  <audio id="musicAudio" preload="none"></audio>
+</div>
+
+<script define:vars={{ trackList: tracks, labels: copy.music }}>
+  function setupMusic() {
+    const box = document.getElementById("music");
+  if (box && trackList.length > 0) {
+    const audio = document.getElementById("musicAudio");
+    const titleEl = document.getElementById("musicTitle");
+    const playBtn = document.getElementById("musicPlay");
+    const prevBtn = document.getElementById("musicPrev");
+    const nextBtn = document.getElementById("musicNext");
+    let i = 0;
+
+    const load = () => {
+      const t = trackList[i];
+      audio.src = t.src;
+      titleEl.textContent = t.artist ? t.title + " · " + t.artist : t.title;
+    };
+
+    const setPlaying = (on) => {
+      box.classList.toggle("playing", on);
+      playBtn.setAttribute("aria-label", on ? labels.pause : labels.play);
+    };
+
+    playBtn.addEventListener("click", () => {
+      if (audio.paused) {
+        audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      } else {
+        audio.pause();
+        setPlaying(false);
+      }
+    });
+
+    prevBtn.addEventListener("click", () => {
+      i = (i - 1 + trackList.length) % trackList.length;
+      const wasPlaying = !audio.paused;
+      load();
+      if (wasPlaying) audio.play().catch(() => {});
+    });
+
+    nextBtn.addEventListener("click", () => {
+      i = (i + 1) % trackList.length;
+      const wasPlaying = !audio.paused;
+      load();
+      if (wasPlaying) audio.play().catch(() => {});
+    });
+
+    audio.addEventListener("ended", () => {
+      i = (i + 1) % trackList.length;
+      load();
+      audio.play().catch(() => setPlaying(false));
+    });
+
+    audio.addEventListener("pause", () => setPlaying(false));
+    audio.addEventListener("play", () => setPlaying(true));
+
+    load();
+  }
+  }
+  document.addEventListener("astro:page-load", setupMusic);
+</script>

@@ -1,0 +1,61 @@
+---
+/**
+ * 简介页：正文在 copy.about.paragraphs，联系方式在 site.social
+ */
+import Base from "../layouts/Base.astro";
+import { site } from "../site.config";
+import { copy } from "../copy";
+import Heatmap from "../components/Heatmap.astro";
+---
+
+<Base title={copy.about.title} calmBg>
+  <div class="wrap">
+    <header class="page-head">
+      <h1 class="page-title">{copy.about.title}</h1>
+      <p class="page-sub">{copy.about.en}</p>
+    </header>
+
+    <Heatmap />
+
+    <div class="about-grid">
+      <div class="prose about-body">
+        {copy.about.paragraphs.map((p) => <p>{p}</p>)}
+      </div>
+
+      <aside class="about-side glass">
+        <div class="about-block">
+          <h3 class="about-h">{copy.about.nowTitle}</h3>
+          <ul class="about-list">
+            {copy.about.now.map((t) => <li>{t}</li>)}
+          </ul>
+        </div>
+
+        <div class="about-block">
+          <h3 class="about-h">{copy.about.contactTitle}</h3>
+          <div class="about-links">
+            {
+              site.social.github && (
+                <a href={site.social.github} target="_blank" rel="noopener">
+                  GitHub ↗
+                </a>
+              )
+            }
+            {
+              site.social.bilibili && (
+                <a href={site.social.bilibili} target="_blank" rel="noopener">
+                  B站 ↗
+                </a>
+              )
+            }
+            {
+              site.social.email && (
+                <a href={`mailto:${site.social.email}`}>{site.social.email}</a>
+              )
+            }
+            <a href="/rss.xml">RSS ↗</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</Base>

@@ -1,0 +1,68 @@
+---
+/**
+ * ============================================================
+ *  文章底部：长按一键三连
+ * ------------------------------------------------------------
+ *  抄 B 站：按住不放，环走满一圈，点赞 / 收藏 / 复制链接一起完成，
+ *  附带一句随机回应。
+ *
+ *  为什么不是三个独立按钮：三个按钮就是三份点击成本，
+ *  合成长按是「一个动作换三件事」。而且长按本身有仪式感，
+ *  会让人觉得「我干了件事」，而不只是划过去。
+ *
+ *  硬要求：
+ *  1. 键盘能用（这是无障碍底线，keydown 也要能触发）
+ *  2. 触屏可用，但必须防误触：手指滑走就取消
+ *  3. 关掉动效后功能完全不受影响，环照样走完、状态照样记录
+ *  4. 收藏状态存 localStorage，换设备不同步（不上云，
+ *     本来就没账号体系，别假装有）
+ * ============================================================
+ */
+import { copy } from "../copy";
+
+interface Props {
+  /** 当前页面 URL，作为「复制链接」的内容 */
+  url: string;
+}
+
+const { url } = Astro.props;
+---
+
+<div class="react" id="react" data-url={url} data-hold={copy.react.holdMs}>
+  <button
+    type="button"
+    class="react-hit"
+    id="reactHit"
+    aria-label={`${copy.react.hint}：${copy.react.likeLabel}、${copy.react.starLabel}、${copy.react.copyLabel}`}
+  >
+    <svg class="react-ring" viewBox="0 0 44 44" aria-hidden="true">
+      <circle class="ring-bg" cx="22" cy="22" r="19"></circle>
+      <circle class="ring-fg" cx="22" cy="22" r="19" id="ringFg"></circle>
+    </svg>
+    <span class="react-core" id="reactCore">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M12 20.4 4.6 13a4.8 4.8 0 0 1 6.8-6.8l.6.6.6-.6A4.8 4.8 0 1 1 19.4 13Z"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linejoin="round"></path>
+      </svg>
+    </span>
+  </button>
+
+  <div class="react-tags" aria-hidden="true">
+    <span class="react-tag" data-t="like">{copy.react.likeLabel}</span>
+    <span class="react-tag" data-t="star">{copy.react.starLabel}</span>
+    <span class="react-tag" data-t="copy">{copy.react.copyLabel}</span>
+  </div>
+
+  <p class="react-hint" id="reactHint">{copy.react.hint}</p>
+  <p
+    class="react-cheer"
+    id="reactCheer"
+    role="status"
+    aria-live="polite"
+    data-cheers={copy.react.cheers.join("|")}
+  >
+  </p>
+</div>

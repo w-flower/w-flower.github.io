@@ -1,0 +1,171 @@
+---
+/**
+ * ============================================================
+ *  写作热力图
+ * ------------------------------------------------------------
+ *  一年的 365 格，颜色深浅 = 当天写了几篇。
+ *  抄 GitHub 贡献图，但配色跟着本站的浅色玻璃走。
+ *
+ *  零 JS：数据在构建时从 content 集合算好，直接画成 SVG。
+ *  悬停提示用原生 <title>，鼠标一停就有，不写任何脚本。
+ *
+ *  为什么值得做：这是唯一一个访客扫一眼就能看懂「这人还在写」的东西，
+ *  比任何自我介绍都有说服力。数据全现成 —— 每篇的 date 就在 frontmatter 里。
+ * ============================================================
+ */
+import { getCollection } from "astro:content";
+import { isPublished } from "../lib/format";
+
+interface Props {
+  /** 起始年份，默认今年 */
+  year?: number;
+}
+
+const { year = new Date().getFullYear() } = Astro.props;
+
+/* ---- 收集所有已发布内容的日期 ---- */
+const all = (
+  await Promise.all([
+    getCollection("posts"),
+    getCollection("notes"),
+    getCollection("snippets"),
+    getCollection("micro"),
+  ])
+)
+  .flat()
+  .filter((e) => isPublished(e.data));
+
+const key = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+
+/* 一天可能发好几篇（micro 尤其多），所以要计数不是打勾 */
+const counts = new Map<string, number>();
+for (const e of all) {
+  const d = e.data.date;
+  if (!d) continue;
+  const k = key(new Date(d));
+  counts.set(k, (counts.get(k) ?? 0) + 1);
+}
+
+const maxCount = Math.max(1, ...counts.values());
+const total = all.length;
+const activeDays = counts.size;
+
+/* ---- 铺格子：一周一行，从周日开始，跟 GitHub 一致 ---- */
+/* GitHub 的列是「周」，行是「周内的天」。中文日历习惯周一开头，
+   但贡献图是给人看密度的，不是给人查日期的，所以跟 GitHub 保持一致，
+   不然每周都错位一天，看着别扭。 */
+const first = new Date(Date.UTC(year, 0, 1));
+/* getUTCDay: 0=周日。补上前一年末尾几天，让 1 月 1 日落在正确的列上 */
+const lead = first.getUTCDay();
+const daysInYear =
+  (Date.UTC(year + 1, 0, 1) - Date.UTC(year, 0, 1)) / 86400000;
+
+const CELL = 11;
+const GAP = 3;
+const LEFT = 30; /* 留给月份标签 */
+const TOP = 18; /* 留给星期标签 */
+
+interface Cell {
+  x: number;
+  y: number;
+  date: string;
+  n: number;
+  lvl: number;
+}
+
+const cells: Cell[] = [];
+const monthMarks: { x: number; label: string }[] = [];
+
+for (let d = 0; d < daysInYear; d++) {
+  const dt = new Date(Date.UTC(year, 0, 1 + d));
+  const dow = dt.getUTCDay();
+  const slot = d + lead;
+  const col = Math.floor(slot / 7);
+  const row = slot % 7;
+  const iso = `${year}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    dt.getUTCDate()
+  ).padStart(2, "0")}`;
+  const n = counts.get(iso) ?? 0;
+  /* 0~4 五档。1 篇和 2 篇差别不大，3、4 档往上给得更宽，
+     这样「写得多」在图上真的看得出来，而不是全挤在同一档 */
+  const lvl = n === 0 ? 0 : n === 1 ? 1 : n === 2 ? 2 : n === 3 ? 3 : 4;
+  cells.push({
+    x: LEFT + col * (CELL + GAP),
+    y: TOP + row * (CELL + GAP),
+    date: iso,
+    n,
+    lvl,
+  });
+
+  /* 每逢月初（且不是 1 号，或者 1 号本身）打一个月份标签 */
+  if (dt.getUTCDate() === 1) {
+    monthMarks.push({ x: LEFT + col * (CELL + GAP), label: `${dt.getUTCMonth() + 1}月` });
+  }
+}
+
+const cols = Math.ceil((lead + daysInYear) / 7);
+const W = LEFT + cols * (CELL + GAP) + 4;
+const H = TOP + 7 * (CELL + GAP) + 4;
+
+const WEEK = ["日", "", "二", "", "四", "", "六"];
+---
+
+<div class="heat">
+  <div class="heat-head">
+    <p class="heat-cap">写作热力图</p>
+    <p class="heat-num">
+      近一年写了 <strong>{total}</strong> 篇 · <strong>{activeDays}</strong> 天有动静
+    </p>
+  </div>
+
+  <div class="heat-scroll">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      width={W}
+      height={H}
+      role="img"
+      aria-label={`${year} 年写作热力图，共 ${total} 篇`}
+    >
+      {
+        WEEK.map((w, i) =>
+          w ? (
+            <text x={LEFT - 8} y={TOP + i * (CELL + GAP) + CELL - 1} text-anchor="end">
+              {w}
+            </text>
+          ) : null
+        )
+      }
+      {
+        monthMarks.map((m) => (
+          <text x={m.x} y={TOP - 6}>
+            {m.label}
+          </text>
+        ))
+      }
+      {
+        cells.map((c) => (
+          <rect
+            x={c.x}
+            y={c.y}
+            width={CELL}
+            height={CELL}
+            rx={2.5}
+            class={`heat-c lv${c.lvl}`}
+          >
+            <title>{c.n > 0 ? `${c.date} · ${c.n} 篇` : `${c.date} · 没写`}</title>
+          </rect>
+        ))
+      }
+    </svg>
+  </div>
+
+  <p class="heat-legend">
+    <span>少</span>
+    <i class="heat-c lv0"></i><i class="heat-c lv1"></i><i class="heat-c lv2"></i
+    ><i class="heat-c lv3"></i><i class="heat-c lv4"></i>
+    <span>多</span>
+  </p>
+</div>

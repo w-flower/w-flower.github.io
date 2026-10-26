@@ -1,65 +1,13 @@
 ---
-import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import ContentList from "../../components/ContentList.astro";
 import { copy } from "../../copy";
-import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
-
-const notes = byDateDesc(
-  (await getCollection("notes")).filter((n) => isPublished(n.data))
-);
-
-const groups = new Map<string, typeof notes>();
-for (const n of notes) {
-  const key = n.data.course;
-  if (!groups.has(key)) groups.set(key, []);
-  groups.get(key)!.push(n);
-}
-
-const statusKeys = Object.keys(copy.noteStatus) as Array<
-  keyof typeof copy.noteStatus
->;
 ---
 
 <Base title={copy.listPages.notes.title}>
-  <div class="page-head bg-grid">
-    <div class="wrap">
-      <h1 class="page-title">{copy.listPages.notes.title}</h1>
-      <p class="page-sub">{notes.length} {copy.listPages.notes.sub}</p>
-    </div>
-  </div>
-
-  <div class="wrap">
-    <section class="section" data-reveal>
-      <div class="hero-meta" style="margin-bottom:8px;">
-        {
-          statusKeys.map((k) => (
-            <span class="pill">
-              <span class={`dot ${k}`} style="margin-right:7px;" />
-              {copy.noteStatus[k]}
-            </span>
-          ))
-        }
-      </div>
-
-      {
-        [...groups.entries()].map(([course, items]) => (
-          <>
-            <div class="group-label">{course}</div>
-            <div class="note-grid">
-              {items.map((note) => (
-                <a class="note-card" href={`/notes/${note.id}/`}>
-                  <div class="note-course">{fmtDate(note.data.date)}</div>
-                  <h2 class="note-title">{note.data.title}</h2>
-                  <div class="note-foot">
-                    <span class={`dot ${note.data.status}`} />
-                    <span>{copy.noteStatus[note.data.status]}</span>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </>
-        ))
-      }
-    </section>
-  </div>
+  <ContentList
+    scope="notes"
+    heading={copy.listPages.notes.title}
+    sub={copy.listPages.notes.sub}
+  />
 </Base>

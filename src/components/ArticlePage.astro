@@ -1,0 +1,509 @@
+---
+/**
+ * ============================================================
+ *  文章详情页骨架（三栏）
+ * ============================================================
+ *  左：个人标识 + 文章信息卡（Date / mood / 工具 / …）+ 平台入口
+ *  中：大标题 + 标签栏 + 正文（slot）
+ *  右：悬浮目录，滚动高亮，点击跳转
+ *
+ *  文章页 / 笔记页 / 代码页共用。正文用 <Content /> 塞进 slot。
+ *  目录来自 render() 返回的 headings，不用手写。
+ * ============================================================
+ */
+import Base from "../layouts/Base.astro";
+import { site } from "../site.config";
+import { copy } from "../copy";
+import { fmtDate } from "../lib/format";
+import { splitWords } from "../lib/typein";
+import ReactBar from "./ReactBar.astro";
+/* 数学公式样式（KaTeX）。只在有正文的详情页加载，首页/归档不需要。 */
+import "katex/dist/katex.min.css";
+
+interface MetaRow {
+  label: string;
+  value: string;
+}
+
+interface RelatedLink {
+  href: string;
+  title: string;
+  kind: "notes" | "posts" | "snippets";
+  color: string;
+}
+
+interface Props {
+  title: string;
+  date: Date;
+  mood?: string;
+  tools?: string[];
+  /** 「…」里展开的补充信息：课程 / 状态 / 标准 … */
+  more?: MetaRow[];
+  tags?: string[];
+  headings?: { depth: number; slug: string; text: string }[];
+  /** 底部「相关推荐」：同一课程 / 同一标签的其它篇 */
+  related?: RelatedLink[];
+  backHref: string;
+  backLabel: string;
+}
+
+const {
+  title,
+  date,
+  mood,
+  tools = [],
+  more = [],
+  tags = [],
+  headings = [],
+  related = [],
+  backHref,
+  backLabel,
+} = Astro.props;
+
+/* 目录只收 h2 / h3，最多 12 条，再长就不是目录是正文了 */
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3).slice(0, 12);
+
+const socials = [
+  {
+    key: "GitHub",
+    url: site.social.github,
+    vb: "0 0 16 16",
+    d: "M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z",
+  },
+  {
+    key: "B站",
+    url: site.social.bilibili,
+    vb: "0 0 24 24",
+    d: "M18.2 4.5h-1.9l1.2-1.2a.9.9 0 0 0-1.3-1.3l-2.5 2.5H10.3L7.8 2a.9.9 0 0 0-1.3 1.3l1.2 1.2H5.8A3.8 3.8 0 0 0 2 8.3v9.4A3.8 3.8 0 0 0 5.8 21.5h12.4a3.8 3.8 0 0 0 3.8-3.8V8.3a3.8 3.8 0 0 0-3.8-3.8Zm2 13.2a2 2 0 0 1-2 2H5.8a2 2 0 0 1-2-2V8.3a2 2 0 0 1 2-2h12.4a2 2 0 0 1 2-2h12.4a2 2 0 0 1 2 2v9.4ZM8.2 10.5a1.1 1.1 0 0 1 1.1 1.1v1.6a1.1 1.1 0 0 1-2.2 0v-1.6a1.1 1.1 0 0 1 1.1-1.1Zm7.6 0a1.1 1.1 0 0 1 1.1 1.1v1.6a1.1 1.1 0 0 1-2.2 0v-1.6a1.1 1.1 0 0 1 1.1-1.1Z",
+  },
+];
+
+/* 标题逐词出现 */
+const titleWords = splitWords(title);
+/* 词太多就压缩节奏，别让最后一行等两秒 */
+const titleLate = titleWords.filter((w) => w.i >= 0).length > 18;
+---
+
+<Base title={title} calmBg>
+  {/* 文章级结构化数据：BlogPosting，标清标题 / 发布时间 / 作者 / 关键词 */}
+  <script
+    is:inline
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: title,
+      datePublished: date.toISOString(),
+      dateModified: date.toISOString(),
+      inLanguage: site.lang,
+      keywords: tags.join(", "),
+      author: { "@type": "Person", name: site.author.name },
+      mainEntityOfPage: new URL(
+        Astro.url.pathname,
+        Astro.site ?? site.url
+      ).toString(),
+      publisher: { "@type": "Person", name: site.author.name },
+    })}
+  />
+
+  <div class="wrap doc">
+    <!-- ── 左：固定侧边信息栏 ── -->
+    <aside class="doc-side" data-reveal>
+      <div class="doc-id glass">
+        <div class="doc-avatar">
+          {
+            site.author.avatar ? (
+              <img src={site.author.avatar} alt={site.author.name} />
+            ) : (
+              <span>{site.author.name.charAt(0)}</span>
+            )
+          }
+        </div>
+        <div class="doc-id-text">
+          <strong>{site.author.name}</strong>
+          <span>{copy.profile.sign}</span>
+        </div>
+      </div>
+
+      <div class="doc-meta glass">
+        <div class="meta-row">
+          <span class="meta-k">{copy.doc.dateLabel}</span>
+          <span class="meta-v">{fmtDate(date)}</span>
+        </div>
+
+        <div class="meta-row">
+          <span class="meta-k">{copy.doc.moodLabel}</span>
+          <span class="meta-v">
+            {mood ? <span class="mood-chip">{mood}</span> : copy.doc.empty}
+          </span>
+        </div>
+
+        <div class="meta-row">
+          <span class="meta-k">{copy.doc.toolsLabel}</span>
+          <span class="meta-v">
+            {
+              tools.length > 0 ? (
+                tools.map((t) => <span class="tool-chip">{t}</span>)
+              ) : (
+                <span class="meta-empty">{copy.doc.empty}</span>
+              )
+            }
+          </span>
+        </div>
+
+        {
+          more.length > 0 && (
+            <>
+              <button
+                type="button"
+                class="meta-more-btn"
+                id="metaMoreBtn"
+                aria-expanded="false"
+                aria-controls="metaMore"
+                title={copy.doc.moreLabel}
+              >
+                {copy.doc.moreBtn}
+              </button>
+              <dl class="meta-more" id="metaMore" hidden>
+                {more.map((m) => (
+                  <div class="meta-row">
+                    <dt class="meta-k">{m.label}</dt>
+                    <dd class="meta-v">{m.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          )
+        }
+      </div>
+
+      <div class="doc-social">
+        {
+          socials.map((s) =>
+            s.url ? (
+              <a href={s.url} target="_blank" rel="noopener" aria-label={s.key} title={s.key}>
+                <svg viewBox={s.vb} fill="currentColor" aria-hidden="true">
+                  <path d={s.d} />
+                </svg>
+              </a>
+            ) : (
+              <span class="link-off" title={`${s.key} · 去 src/site.config.ts 里填链接`}>
+                <svg viewBox={s.vb} fill="currentColor" aria-hidden="true">
+                  <path d={s.d} />
+                </svg>
+              </span>
+            )
+          )
+        }
+      </div>
+    </aside>
+
+    <!-- ── 中：标题 + 标签 + 正文 ── -->
+    <main class="doc-main" data-reveal>
+      <h1 class="doc-title grad-text type-in" data-late={titleLate ? "1" : undefined}>
+      {titleWords.map((w) => <span style={`--i:${w.i}`}>{w.t}</span>)}
+    </h1>
+
+      <div class="doc-tags">
+        <span class="tags-label">{copy.doc.tagsLabel}</span>
+        {
+          tags.map((t) => (
+            <span class="tag-chip">{t}</span>
+          ))
+        }
+      </div>
+
+      <div class="prose">
+        <slot />
+      </div>
+
+      <ReactBar url={Astro.url.pathname} />
+
+      {
+        related.length > 0 && (
+          <section class="rel" data-reveal aria-label={copy.doc.relatedCap}>
+            <p class="rel-cap">{copy.doc.relatedCap}</p>
+            <p class="rel-sub">{copy.doc.relatedSub}</p>
+            <div class="rel-list">
+              {
+                related.map((r) => (
+                  <a class="rel-item" href={r.href}>
+                    <span class="kind-dot" style={`--c:${r.color}`} />
+                    <span class="rel-title">{r.title}</span>
+                    <span class="rel-kind">{copy.kinds[r.kind]}</span>
+                    <svg class="rel-go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                      <path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </a>
+                ))
+              }
+            </div>
+          </section>
+        )
+      }
+
+      <a class="back-link" href={backHref}>{backLabel}</a>
+    </main>
+
+    <!-- ── 右：悬浮目录 ── -->
+    {
+      toc.length > 0 && (
+        <aside class="doc-toc glass" data-reveal aria-label="目录">
+          <p class="toc-cap">{copy.doc.tocCap}</p>
+          <p class="toc-sub">{copy.doc.tocSub}</p>
+          <ol class="toc-list" id="tocList">
+            {
+              toc.map((h, i) => (
+                <li class:list={["toc-item", { sub: h.depth === 3 }]}>
+                  <a href={`#${h.slug}`} data-toc={h.slug}>
+                    <span class="toc-n">{i + 1}</span>
+                    <span class="toc-t">{h.text}</span>
+                  </a>
+                </li>
+              ))
+            }
+          </ol>
+        </aside>
+      )
+    }
+  </div>
+</Base>
+
+<script>
+  import { copy } from "../copy";
+  /* ══ 模块级状态：window 在换页后保留，以下变量让「只绑一次的全局监听」
+     能始终指向当前页面的元素/数据（换页后由 setupArticle 刷新） ══ */
+  let react, rHit, rRing, rCheer, rCheers;
+  let rRaf = 0, rFrom = 0, rMarked = false, rC = 0, rStarred, rHere;
+  let rWinBound = false;
+  let tocLinks = [], tocHeads = [], tocBound = false;
+
+  function setupArticle() {
+    /* 「…」展开补充信息（元素监听：换页后重绑到新按钮） */
+    const moreBtn = document.getElementById("metaMoreBtn");
+    const moreBox = document.getElementById("metaMore");
+    if (moreBtn && moreBox) {
+      moreBtn.addEventListener("click", () => {
+        const open = moreBox.hidden;
+        moreBox.hidden = !open;
+        moreBtn.setAttribute("aria-expanded", String(open));
+        moreBtn.classList.toggle("on", open);
+      });
+    }
+
+    /* ── 长按一键三连 ─────────────────────────────────────
+       按住 → 环走满一圈 → 点赞 / 收藏 / 复制一起完成。 */
+    react = document.getElementById("react");
+    rHit = document.getElementById("reactHit");
+    rRing = document.getElementById("ringFg");
+    rCheer = document.getElementById("reactCheer");
+    rCheers = (rCheer?.dataset.cheers ?? "记下了").split("|").filter(Boolean);
+
+    if (react && rHit && rRing) {
+      const HOLD = Number(react.dataset.hold) || 800;
+      rC = 2 * Math.PI * 19;
+      rRing.style.strokeDasharray = `${rC}`;
+      rRing.style.strokeDashoffset = `${rC}`;
+
+      const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+      rStarred = new Set<string>(
+        (() => {
+          try {
+            return JSON.parse(localStorage.getItem("starred") ?? "[]");
+          } catch {
+            return [];
+          }
+        })()
+      );
+      rHere = react.dataset.url ?? location.pathname;
+      if (rStarred.has(rHere)) react.classList.add("starred");
+
+      const say = (msg: string) => {
+        if (!rCheer) return;
+        rCheer.textContent = msg;
+        react.classList.add("said");
+        window.setTimeout(() => react?.classList.remove("said"), 2600);
+      };
+
+      const burst = () => {
+        if (calm.matches) return;
+        const core = document.getElementById("reactCore");
+        if (!core) return;
+        const r = core.getBoundingClientRect();
+        const ox = r.left + r.width / 2;
+        const oy = r.top + r.height / 2;
+        const heart = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.4 4.6 13a4.8 4.8 0 0 1 6.8-6.8l.6.6.6-.6A4.8 4.8 0 1 1 19.4 13Z"/></svg>';
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+          const dist = 34 + Math.random() * 26;
+          const s = document.createElement("span");
+          s.className = "react-spark";
+          s.innerHTML = heart;
+          s.style.left = `${ox}px`;
+          s.style.top = `${oy}px`;
+          s.style.setProperty("--dx", `${Math.cos(a) * dist}px`);
+          s.style.setProperty("--dy", `${Math.sin(a) * dist - 14}px`);
+          document.body.appendChild(s);
+          s.animate(
+            [
+              { transform: "translate(-50%,-50%) scale(.2)", opacity: 0.95 },
+              {
+                transform: `translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1)`,
+                opacity: 0,
+              },
+            ],
+            { duration: 620 + Math.random() * 220, easing: "cubic-bezier(.2,.7,.3,1)" }
+          ).onfinish = () => s.remove();
+        }
+      };
+
+      const fire = () => {
+        if (rMarked) return;
+        rMarked = true;
+        react.classList.add("done");
+        burst();
+        const pick = rCheers[Math.floor(Math.random() * rCheers.length)] ?? "记下了";
+        say(pick);
+
+        if (!rStarred.has(rHere)) {
+          rStarred.add(rHere);
+          react.classList.add("starred");
+        }
+        try {
+          localStorage.setItem("starred", JSON.stringify([...rStarred]));
+        } catch {
+          /* 无痕模式写不进去就算了，不报错 */
+        }
+
+        const done = () => say(copy.react.toastCopy);
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(location.href).then(done, () => {
+            const ta = document.createElement("textarea");
+            ta.value = location.href;
+            ta.style.cssText = "position:fixed;opacity:0";
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand("copy"); done(); } catch {}
+            ta.remove();
+          });
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = location.href;
+          ta.style.cssText = "position:fixed;opacity:0";
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); done(); } catch {}
+          ta.remove();
+        }
+      };
+
+      const tick = () => {
+        if (!rRing || !react) { rRaf = 0; return; }
+        const t = Math.min(1, (performance.now() - rFrom) / HOLD);
+        rRing.style.strokeDashoffset = `${rC * (1 - t)}`;
+        if (t < 1) {
+          rRaf = requestAnimationFrame(tick);
+        } else {
+          rRaf = 0;
+          fire();
+        }
+      };
+
+      const start = (e: Event) => {
+        if (!rHit || !rRing) return;
+        rMarked = false;
+        rFrom = performance.now();
+        rHit.classList.add("holding");
+        if (e.type === "mousedown") e.preventDefault();
+        if (!rRaf) rRaf = requestAnimationFrame(tick);
+      };
+
+      const cancel = () => {
+        if (!rRaf || !rHit || !rRing) return;
+        cancelAnimationFrame(rRaf);
+        rRaf = 0;
+        rHit.classList.remove("holding");
+        rRing.style.transition = "stroke-dashoffset .28s cubic-bezier(.4,0,.2,1)";
+        rRing.style.strokeDashoffset = `${rC}`;
+        window.setTimeout(() => {
+          rRing.style.transition = "";
+        }, 300);
+      };
+
+      rHit.addEventListener("pointerdown", start);
+      rHit.addEventListener("pointerup", cancel);
+      rHit.addEventListener("pointerleave", cancel);
+      rHit.addEventListener("pointercancel", cancel);
+      rHit.addEventListener("keydown", (e) => {
+        if (e.key !== " " && e.key !== "Enter") return;
+        e.preventDefault();
+        if (e.repeat) return;
+        start(e);
+      });
+      rHit.addEventListener("keyup", (e) => {
+        if (e.key !== " " && e.key !== "Enter") return;
+        cancel();
+      });
+      rHit.addEventListener("blur", cancel);
+
+      /* window 级监听只绑一次：闭包引用模块级 rRaf/rHit/rRing/rC，
+         换页后由 setupArticle 刷新这些变量，旧元素随 body 销毁。 */
+      if (!rWinBound) {
+        rWinBound = true;
+        window.addEventListener("pointerup", cancel);
+      }
+    }
+
+    /* 首段轻微强调：首字符是汉字/字母才处理 */
+    const first = document.querySelector<HTMLElement>(
+      ".doc-main .prose > p:first-of-type"
+    );
+    if (first) {
+      const head = (first.textContent ?? "").trim().replace(/^[*_`>#\-+]+/, "");
+      if (/^[\p{L}]/u.test(head)) first.classList.add("dropcap");
+    }
+
+    /* 目录：滚动高亮 + 点击平滑跳转 */
+    tocLinks = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>("#tocList a[data-toc]")
+    );
+    tocHeads = tocLinks
+      .map((a) => document.getElementById(a.dataset.toc ?? ""))
+      .filter((el): el is HTMLElement => !!el);
+
+    if (tocLinks.length && tocHeads.length) {
+      const jump = (e: Event) => {
+        const a = e.currentTarget as HTMLAnchorElement;
+        const el = document.getElementById(a.dataset.toc ?? "");
+        if (!el) return;
+        e.preventDefault();
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(null, "", `#${a.dataset.toc}`);
+      };
+      tocLinks.forEach((a) => a.addEventListener("click", jump));
+
+      const setActive = () => {
+        const line = 120;
+        let idx = 0;
+        for (let i = 0; i < tocHeads.length; i++) {
+          if (tocHeads[i].getBoundingClientRect().top - line <= 0) idx = i;
+        }
+        if (
+          window.innerHeight + window.scrollY >=
+          document.body.scrollHeight - 4
+        ) {
+          idx = tocHeads.length - 1;
+        }
+        tocLinks.forEach((a, i) => a.classList.toggle("on", i === idx));
+      };
+      setActive();
+      /* window 级监听只绑一次：setActive 闭包引用模块级 tocLinks/tocHeads */
+      if (!tocBound) {
+        tocBound = true;
+        window.addEventListener("scroll", setActive, { passive: true });
+        window.addEventListener("resize", setActive);
+      }
+    }
+  }
+  document.addEventListener("astro:page-load", setupArticle);
+</script>

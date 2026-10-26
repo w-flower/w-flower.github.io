@@ -1,8 +1,9 @@
 ---
 import { getCollection, render } from "astro:content";
-import Base from "../../layouts/Base.astro";
+import ArticlePage from "../../components/ArticlePage.astro";
 import { copy } from "../../copy";
-import { fmtDate, isPublished } from "../../lib/format";
+import { isPublished } from "../../lib/format";
+import { getRelated } from "../../lib/related";
 
 export async function getStaticPaths() {
   const snippets = await getCollection("snippets");
@@ -15,57 +16,38 @@ export async function getStaticPaths() {
 }
 
 const { snippet } = Astro.props;
-const { Content } = await render(snippet);
+const { Content, headings } = await render(snippet);
+const d = snippet.data;
+const related = await getRelated({ kind: "snippets", id: snippet.id, tags: d.tags });
 ---
 
-<Base title={snippet.data.title}>
-  <header class="article-head bg-grid">
-    <div class="wrap narrow">
-      <div class="article-meta" data-reveal>
-        <span>{snippet.data.std}</span>
-        <span class="bar"></span>
-        <span>{fmtDate(snippet.data.date)}</span>
-        {
-          snippet.data.run && (
-            <>
-              <span class="bar"></span>
-              <a
-                href={snippet.data.run}
-                target="_blank"
-                rel="noopener"
-                style="color:var(--accent);"
-              >
-                {copy.snippet.openInCE}
-              </a>
-            </>
-          )
-        }
-      </div>
-      <h1 class="article-title" data-reveal>{snippet.data.title}</h1>
-    </div>
-  </header>
-
-  <div class="wrap narrow">
-    <div class="prose" data-reveal>
-      <Content />
-    </div>
-
+<ArticlePage
+  title={d.title}
+  date={d.date}
+  mood={d.mood}
+  tools={d.tools}
+  tags={d.tags}
+  headings={headings}
+  related={related}
+  more={[
+    { label: "标准", value: d.std },
     {
-      snippet.data.repo && (
-        <p style="margin-top:36px;font-size:14px;color:var(--muted);">
-          {copy.snippet.repoLabel}
-          <a
-            href={snippet.data.repo}
-            target="_blank"
-            rel="noopener"
-            style="color:var(--accent-soft);"
-          >
-            {copy.snippet.repoLink}
-          </a>
-        </p>
-      )
-    }
+      label: "运行",
+      value: d.run ? "Compiler Explorer" : "只读",
+    },
+    { label: "仓库", value: d.repo ? "GitHub" : "—" },
+  ]}
+  backHref="/snippets/"
+  backLabel={copy.back.snippets}
+>
+  <Content />
 
-    <a class="back-link" href="/snippets/">{copy.back.snippets}</a>
-  </div>
-</Base>
+  {
+    d.repo && (
+      <p class="doc-repo">
+        {copy.snippet.repoLabel}
+        <a href={d.repo} target="_blank" rel="noopener">{copy.snippet.repoLink}</a>
+      </p>
+    )
+  }
+</ArticlePage>

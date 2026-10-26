@@ -15,6 +15,8 @@ const posts = defineCollection({
     ...base,
     summary: z.string(),
     tags: z.array(z.string()).default([]),
+    mood: z.string().optional(), // 写这篇时的状态，详情页左栏显示
+    tools: z.array(z.string()).default([]), // 用到的工具
   }),
 });
 
@@ -26,6 +28,12 @@ const notes = defineCollection({
     title: z.string(),
     course: z.string(),
     status: z.enum(["seed", "growing", "evergreen"]).default("seed"),
+    /* 列表卡片上那一行。不填就自动截正文开头 110 字。 */
+    summary: z.string().optional(),
+    /* 知识点标签（跟 course 分开：course 是「哪门课」，tags 是「讲了什么」） */
+    tags: z.array(z.string()).default([]),
+    mood: z.string().optional(),
+    tools: z.array(z.string()).default([]),
   }),
 });
 
@@ -40,6 +48,8 @@ const snippets = defineCollection({
     repo: z.string().url().optional(),
     tags: z.array(z.string()).default([]),
     draft: z.boolean().default(false),
+    mood: z.string().optional(),
+    tools: z.array(z.string()).default([]),
   }),
 });
 

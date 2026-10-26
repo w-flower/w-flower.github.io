@@ -1,53 +1,13 @@
 ---
-import { getCollection, render } from "astro:content";
 import Base from "../layouts/Base.astro";
+import ContentList from "../components/ContentList.astro";
 import { copy } from "../copy";
-import { byDateDesc, fmtDate, isPublished } from "../lib/format";
-
-const raw = byDateDesc(
-  (await getCollection("micro")).filter((m) => isPublished(m.data))
-);
-
-const items = await Promise.all(
-  raw.map(async (m) => ({
-    data: m.data,
-    Content: (await render(m)).Content,
-  }))
-);
-
-const groups = new Map<string, typeof items>();
-for (const item of items) {
-  const key = String(item.data.date.getFullYear());
-  if (!groups.has(key)) groups.set(key, []);
-  groups.get(key)!.push(item);
-}
 ---
 
 <Base title={copy.listPages.micro.title}>
-  <div class="page-head bg-grid">
-    <div class="wrap">
-      <h1 class="page-title">{copy.listPages.micro.title}</h1>
-      <p class="page-sub">{items.length} {copy.listPages.micro.sub}</p>
-    </div>
-  </div>
-
-  <div class="wrap">
-    <div class="stream">
-      {
-        [...groups.entries()].map(([year, list]) => (
-          <>
-            <div class="stream-year">{year}</div>
-            {list.map((item) => (
-              <div class="stream-item" data-reveal>
-                <div class="stream-date">{fmtDate(item.data.date)}</div>
-                <div class="stream-body">
-                  <item.Content />
-                </div>
-              </div>
-            ))}
-          </>
-        ))
-      }
-    </div>
-  </div>
+  <ContentList
+    scope="micro"
+    heading={copy.listPages.micro.title}
+    sub={copy.listPages.micro.sub}
+  />
 </Base>

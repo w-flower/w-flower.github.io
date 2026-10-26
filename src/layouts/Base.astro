@@ -1,18 +1,68 @@
 ---
+import { getCollection } from "astro:content";
 import { site } from "../site.config";
 import { copy } from "../copy";
 import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import SeasonalLine from "../components/SeasonalLine.astro";
+import BgLayer from "../components/BgLayer.astro";
+import CmdPalette from "../components/CmdPalette.astro";
+import { byDateDesc, isPublished } from "../lib/format";
 
 interface Props {
   title?: string;
   description?: string;
+  hideFooter?: boolean;
+  /**
+   * 把背景图压淡。背景层是 position:fixed，等于永远在所有内容底下：
+   * 首页有大标题和大卡片扛得住，文章正文一行行小字压在高饱和红叶上就读不清了。
+   * 所以长文页面开这个，遮罩浓度调高、图片高度收短。
+   */
+  calmBg?: boolean;
 }
 
-const { title, description = site.description } = Astro.props;
+const {
+  title,
+  description = site.description,
+  hideFooter = false,
+  calmBg = false,
+} = Astro.props;
 const pageTitle = title ? `${title} · ${site.name}` : site.name;
 const path = Astro.url.pathname;
 const canonical = new URL(path, Astro.site ?? site.url).toString();
+
+/* ── 导航悬停展开的第二层：每类最近 3 条 ────────────── */
+const plain = (s = "") =>
+  s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_`~>]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const notes = byDateDesc(
+  (await getCollection("notes")).filter((p) => isPublished(p.data))
+).slice(0, 3);
+const snippets = byDateDesc(
+  (await getCollection("snippets")).filter((p) => isPublished(p.data))
+).slice(0, 3);
+const micros = byDateDesc(
+  (await getCollection("micro")).filter((p) => isPublished(p.data))
+).slice(0, 3);
+
+const menus: Record<string, { label: string; href: string }[]> = {
+  "/notes/": notes.map((n) => ({ label: n.data.title, href: `/notes/${n.id}/` })),
+  "/snippets/": snippets.map((s) => ({
+    label: s.data.title,
+    href: `/snippets/${s.id}/`,
+  })),
+  "/micro/": micros.map((m) => ({
+    label: plain((m as { body?: string }).body ?? "").slice(0, 22) || "随笔",
+    href: "/micro/",
+  })),
+};
 ---
 
 <!doctype html>
@@ -23,7 +73,8 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    <meta name="theme-color" content="#16110e" />
+    <meta name="theme-color" content="#eef3fa" />
+    <ClientRouter />
 
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
@@ -33,26 +84,148 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
 
     <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/* 站点级结构化数据：WebSite + 作者 Person，帮助搜索引擎理解站点 */}
+    <script
+      is:inline
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": new URL("/", Astro.site ?? site.url).toString(),
+            url: (Astro.site ?? site.url).toString(),
+            name: site.name,
+            description: site.description,
+            inLanguage: site.lang,
+          },
+          {
+            "@type": "Person",
+            name: site.author.name,
+            url: (Astro.site ?? site.url).toString(),
+          },
+        ],
+      })}
+    />
+    <script is:inline data-astro-rerun>
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          var root = document.documentElement;
+          if (t === "light" || t === "dark") root.setAttribute("data-theme", t);
+          else if (window.matchMedia("(prefers-color-scheme: dark)").matches)
+            root.setAttribute("data-theme", "dark");
+        } catch (e) {}
+      })();
+    </script>
     <script is:inline>
       document.documentElement.classList.add("js-ready");
     </script>
   </head>
-  <body>
+  <body class={calmBg ? "bg-calm" : undefined}>
+    <BgLayer />
+    <div class="progress" id="progress" aria-hidden="true">
+      <span class="progress-cat" id="progressCat">
+        <img src="/avatar.jpg" alt="" />
+      </span>
+    </div>
+
+    <CmdPalette />
+
     <nav class="nav" id="nav">
       <div class="wrap nav-inner">
         <a class="brand" href="/" id="brand">{site.name}</a>
-        <div class="nav-links">
+        <ul class="nav-links">
           {
-            copy.nav.map((item) => (
-              <a
-                href={item.href}
-                aria-current={path.startsWith(item.href) ? "page" : undefined}
-              >
-                {item.label}
-              </a>
-            ))
+            copy.nav.map((item) => {
+              const recent = menus[item.href] ?? [];
+              const hasDrop =
+                !!item.desc || recent.length > 0 || item.children.length > 0;
+              return (
+                <li class="nav-item">
+                  <a
+                    href={item.href}
+                    aria-current={
+                      item.href !== "/" && path.startsWith(item.href)
+                        ? "page"
+                        : undefined
+                    }
+                  >
+                    {item.label}
+                  </a>
+                  {hasDrop && (
+                    <div class="nav-drop">
+                      <div class="drop-inner">
+                        {item.desc && <p class="drop-desc">{item.desc}</p>}
+                        {recent.length > 0 && (
+                          <ul class="drop-list">
+                            {recent.map((r) => (
+                              <li>
+                                <a href={r.href}>{r.label}</a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {item.children.length > 0 && (
+                          <ul class="drop-list">
+                            {item.children.map((c) => (
+                              <li>
+                                <a href={c.href}>{c.label}</a>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {(recent.length > 0 || !!item.desc) && (
+                          <a class="drop-more" href={item.href}>
+                            {copy.navMore}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })
           }
-        </div>
+        </ul>
+
+        <button
+          id="themeToggle"
+          class="theme-toggle"
+          type="button"
+          aria-label="切换深色 / 浅色模式"
+          title="深色 / 浅色"
+        >
+          <svg
+            class="i-moon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            aria-hidden="true"
+          >
+            <path
+              d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+          </svg>
+          <svg
+            class="i-sun"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="4" />
+            <path
+              d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
       </div>
     </nav>
 
@@ -62,33 +235,121 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
       <slot />
     </main>
 
-    <footer class="footer">
-      <div class="wrap footer-inner">
-        <div class="footer-note">
-          <strong>{site.author.name}</strong><br />
-          {new Date().getFullYear()} · built with astro
-        </div>
-        {site.quirks.seasonalLine && <SeasonalLine />}
-      </div>
-    </footer>
+    {
+      !hideFooter && (
+        <footer class="footer">
+          <div class="wrap footer-inner">
+            <div class="footer-note">
+              <strong>{site.author.name}</strong>
+              <br />
+              {new Date().getFullYear()} · built with astro
+            </div>
+            {site.quirks.seasonalLine && <SeasonalLine />}
+          </div>
+        </footer>
+      )
+    }
+    <script>    /* 客户端导航（View Transitions）下 body 会被整体替换，
+       页面级初始化挂在 astro:page-load 上，每次导航重跑一遍；
+       window 级监听常驻，只绑一次。 */
 
-    <script>
-      const nav = document.getElementById("nav");
+    const rootEl = document.documentElement;
+    const setThemeMeta = () => {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", rootEl.getAttribute("data-theme") === "dark" ? "#0e1420" : "#eef3fa");
+    };
+
+    function placeNav(li) {
+      const drop = li.querySelector(".nav-drop");
+      if (!drop) return;
+      const r = drop.getBoundingClientRect();
+      const over = r.right - window.innerWidth;
+      li.classList.toggle("flip", over > 0);
+      li.classList.toggle("flip-l", r.left < 0);
+    }
+
+    let winBound = false;
+    function bindWindowOnce() {
+      if (winBound) return;
+      winBound = true;
+
       const onScroll = () => {
-        nav?.classList.toggle("scrolled", window.scrollY > 8);
+        document.getElementById("nav")?.classList.toggle("scrolled", window.scrollY > 8);
       };
       onScroll();
       window.addEventListener("scroll", onScroll, { passive: true });
 
+      const placeAll = () => document.querySelectorAll(".nav-item").forEach((li) => placeNav(li));
+      placeAll();
+      window.addEventListener("resize", placeAll);
+
+      document.addEventListener(
+        "pointermove",
+        (e) => {
+          const card = e.target?.closest?.(".card, .note-card");
+          if (!card) return;
+          const r = card.getBoundingClientRect();
+          card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+          card.style.setProperty("--my", `${e.clientY - r.top}px`);
+        },
+        { passive: true }
+      );
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape")
+          document.querySelectorAll(".nav-item").forEach((li) => li.classList.remove("open"));
+      });
+
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+        if (!localStorage.getItem("theme")) {
+          rootEl.setAttribute("data-theme", e.matches ? "dark" : "light");
+          setThemeMeta();
+        }
+      });
+
+      /* 进度条罗小黑：window 监听只绑一次；每次客户端导航在 initBlog 里重踢，
+         让 step 每帧重新指向换页后的 #progress 元素，并刷新 lastY / 复位姿态。 */
+      const calmPM = window.matchMedia("(prefers-reduced-motion: reduce)");
+      let pTilt = 0, pZoom = 1, pLastY = window.scrollY, pDy = 0, pHeld = 0, pRaf = 0;
+      const pStep = () => {
+        pRaf = 0;
+        const bar = document.getElementById("progress");
+        if (!bar) return;
+        const y = window.scrollY;
+        const span = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        const p = Math.min(1, Math.max(0, y / span));
+        const set = (k, v) => bar.style.setProperty(k, v);
+        set("--p", p.toFixed(4));
+        set("--x", `${(p * (window.innerWidth - 26)).toFixed(2)}px`);
+        pDy = y - pLastY; pLastY = y;
+        if (!calmPM.matches) {
+          const want = pDy === 0 ? 1 : Math.min(1.32, 1 + Math.abs(pDy) / 620);
+          pZoom += (want - pZoom) * (pDy === 0 ? 0.22 : 0.55);
+          const lean = pDy === 0 ? 0 : Math.sign(pDy) * (4 + (pZoom - 1) * 26);
+          pTilt += (lean - pTilt) * 0.24;
+          set("--tilt", `${pTilt.toFixed(2)}deg`);
+          set("--s", pZoom.toFixed(3));
+        }
+        const busy = Math.abs(pTilt) > 0.05 || Math.abs(pZoom - 1) > 0.003 || pDy !== 0 || pHeld > 0;
+        if (busy) { if (pDy === 0 && pHeld > 0) pHeld -= 1; pRaf = requestAnimationFrame(pStep); }
+      };
+      const progressKick = () => { pHeld = 20; pLastY = window.scrollY; if (!pRaf) pRaf = requestAnimationFrame(pStep); };
+      const progressReset = () => { pTilt = 0; pZoom = 1; pDy = 0; pHeld = 0; };
+      window.addEventListener("scroll", progressKick, { passive: true });
+      window.addEventListener("resize", progressKick);
+      window.__progressKick = progressKick;
+      window.__progressReset = progressReset;
+      progressKick();
+    }
+
+    function initBlog() {
+      /* 文字逐段入场 */
       const targets = document.querySelectorAll("[data-reveal]");
       if ("IntersectionObserver" in window) {
         const io = new IntersectionObserver(
           (entries) => {
             for (const e of entries) {
-              if (e.isIntersecting) {
-                e.target.classList.add("in");
-                io.unobserve(e.target);
-              }
+              if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
             }
           },
           { rootMargin: "0px 0px -8% 0px", threshold: 0.05 }
@@ -98,38 +359,54 @@ const canonical = new URL(path, Astro.site ?? site.url).toString();
         targets.forEach((el) => el.classList.add("in"));
       }
 
-      document.addEventListener(
-        "pointermove",
-        (e) => {
-          const card = (e.target as Element)?.closest?.(".card, .note-card");
-          if (!card) return;
-          const r = (card as HTMLElement).getBoundingClientRect();
-          (card as HTMLElement).style.setProperty(
-            "--mx",
-            `${e.clientX - r.left}px`
-          );
-          (card as HTMLElement).style.setProperty(
-            "--my",
-            `${e.clientY - r.top}px`
-          );
-        },
-        { passive: true }
-      );
-
-      let hits = 0;
-      let timer: number | undefined;
+      /* 站名连点彩蛋 */
+      let hits = 0, timer;
       document.getElementById("brand")?.addEventListener("click", (e) => {
         hits += 1;
         window.clearTimeout(timer);
         timer = window.setTimeout(() => (hits = 0), 900);
         if (hits >= 5) {
-          e.preventDefault();
-          hits = 0;
+          e.preventDefault(); hits = 0;
           const s = document.getElementById("secret");
           s?.classList.add("on");
           window.setTimeout(() => s?.classList.remove("on"), 3200);
         }
       });
-    </script>
+
+      /* 导航第二层 */
+      const items = Array.from(document.querySelectorAll(".nav-item")).filter((li) => li.querySelector(".nav-drop"));
+      items.forEach((li) => {
+        let openTimer = 0, closeTimer = 0;
+        const open = () => { window.clearTimeout(closeTimer); window.clearTimeout(openTimer); placeNav(li); openTimer = window.setTimeout(() => li.classList.add("open"), 100); };
+        const close = () => { window.clearTimeout(openTimer); window.clearTimeout(closeTimer); closeTimer = window.setTimeout(() => li.classList.remove("open"), 140); };
+        li.addEventListener("pointerenter", open);
+        li.addEventListener("pointerleave", close);
+        li.addEventListener("focusin", () => { placeNav(li); li.classList.add("open"); });
+        li.addEventListener("focusout", () => li.classList.remove("open"));
+      });
+
+      /* 主题切换 */
+      const themeBtn = document.getElementById("themeToggle");
+      if (themeBtn) {
+        const syncPressed = () => themeBtn.setAttribute("aria-pressed", String(rootEl.getAttribute("data-theme") === "dark"));
+        syncPressed(); setThemeMeta();
+        themeBtn.addEventListener("click", () => {
+          const cur = rootEl.getAttribute("data-theme");
+          const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const next = cur === "dark" ? "light" : cur === "light" ? "dark" : sysDark ? "light" : "dark";
+          rootEl.setAttribute("data-theme", next);
+          try { localStorage.setItem("theme", next); } catch (e) {}
+          syncPressed(); setThemeMeta();
+        });
+      }
+
+      bindWindowOnce();
+      /* 客户端换页后 #progress 是全新元素，重踢进度条（复位姿态 + 刷新 DOM 引用） */
+      if (window.__progressReset) window.__progressReset();
+      if (window.__progressKick) window.__progressKick();
+    }
+
+    document.addEventListener("astro:page-load", initBlog);
+</script>
   </body>
 </html>

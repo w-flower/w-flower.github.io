@@ -1,0 +1,134 @@
+---
+/**
+ * 标签 / Tags
+ *   把所有标签摊在一页：字号按篇数走，点一个就跳到对应列表页并自动筛到它。
+ *   标签从 notes / posts / snippets 三个集合的 frontmatter 里来；
+ *   笔记没写 tags 时退回用 course（「工科数学分析」）。
+ */
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { isPublished } from "../../lib/format";
+
+interface Entry {
+  href: string;
+  title: string;
+  kind: "notes" | "posts" | "snippets";
+}
+
+const notes = (await getCollection("notes")).filter((n) => isPublished(n.data));
+const posts = (await getCollection("posts")).filter((p) => isPublished(p.data));
+const snippets = (await getCollection("snippets")).filter((s) => isPublished(s.data));
+
+/* tag -> 这个标签下有哪些内容 */
+const byTag = new Map<string, Entry[]>();
+const push = (tag: string, e: Entry) => {
+  const arr = byTag.get(tag) ?? [];
+  arr.push(e);
+  byTag.set(tag, arr);
+};
+
+for (const n of notes) {
+  const tags = n.data.tags.length ? n.data.tags : [n.data.course];
+  for (const t of tags)
+    push(t, { href: `/notes/${n.id}/`, title: n.data.title, kind: "notes" });
+}
+for (const p of posts)
+  for (const t of p.data.tags)
+    push(t, { href: `/posts/${p.id}/`, title: p.data.title, kind: "posts" });
+for (const s of snippets)
+  for (const t of s.data.tags)
+    push(t, { href: `/snippets/${s.id}/`, title: s.data.title, kind: "snippets" });
+
+/* 篇数多的在前；同篇数按名字排，中文按拼音习惯用 localeCompare */
+const tags = [...byTag.entries()]
+  .map(([tag, list]) => ({
+    tag,
+    count: list.length,
+    kinds: [...new Set(list.map((e) => e.kind))],
+    href:
+      list.length && list.every((e) => e.kind === "notes")
+        ? `/notes/?tag=${encodeURIComponent(tag)}`
+        : `/archive/?tag=${encodeURIComponent(tag)}`,
+  }))
+  .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, "zh"));
+
+const max = Math.max(1, ...tags.map((t) => t.count));
+const size = (n: number) => 13 + Math.round(9 * (n / max));
+const totalItems = notes.length + posts.length + snippets.length;
+---
+
+<Base title="标签">
+  <div class="wrap">
+    <header class="page-head">
+      <h1 class="page-title">标签 <span class="en">/ Tags</span></h1>
+      <p class="page-sub">
+        共 {tags.length} 个标签，来自 {totalItems} 篇内容。字越大，挂的东西越多。
+      </p>
+    </header>
+
+    <div class="tag-cloud">
+      {
+        tags.map((t) => (
+          <a href={t.href} style={`font-size:${size(t.count)}px`}>
+            {t.tag}
+            <span class="n">{t.count}</span>
+          </a>
+        ))
+      }
+    </div>
+
+    <p class="tag-note">
+      点一个标签，会跳到对应列表页并自动筛到它。笔记的标签是知识点（夹逼、连续…），
+      课程名单独放在每篇的信息栏里。
+    </p>
+  </div>
+</Base>
+
+<style>
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px 12px;
+    margin: 4px 0 0;
+  }
+  .tag-cloud a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 7px 14px;
+    border-radius: var(--pill);
+    background: var(--glass);
+    border: 1px solid var(--glass-line);
+    color: var(--ink-2);
+    text-decoration: none;
+    line-height: 1.15;
+    backdrop-filter: blur(var(--blur));
+    transition: color 0.18s, border-color 0.18s, transform 0.18s;
+  }
+  .tag-cloud a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .tag-cloud .n {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .tag-note {
+    margin-top: 26px;
+    font-size: 13px;
+    line-height: 1.75;
+    color: var(--ink-3);
+    max-width: 62ch;
+  }
+  @media (max-width: 640px) {
+    .tag-cloud {
+      gap: 8px 9px;
+    }
+    .tag-cloud a {
+      padding: 6px 11px;
+    }
+  }
+</style>

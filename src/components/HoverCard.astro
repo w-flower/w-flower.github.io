@@ -1,0 +1,159 @@
+---
+/**
+ * 悬停浮层：全站只有这一个节点，鼠标停在卡片上 400ms 后在光标旁浮出。
+ * 内容从卡片的 data-* 属性读，不重复渲染 HTML。
+ */
+import { copy } from "../copy";
+---
+
+<div class="hovercard" id="hovercard" aria-hidden="true">
+  <div class="hc-inner">
+    <div class="hc-top">
+      <span class="hc-dot"></span>
+      <span class="hc-kind"></span>
+      <span class="hc-date"></span>
+    </div>
+    <h4 class="hc-title"></h4>
+    <p class="hc-summary"></p>
+    <div class="hc-meta"></div>
+    <div class="hc-tags"></div>
+    <div class="hc-foot">
+      <span class="hc-open">{copy.hoverCard.open}</span>
+      <span>{copy.hoverCard.esc}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  let hc = null;
+  let hcCur = null, hcVisible = false, hcRaf = 0, hcShowTimer = 0, hcHideTimer = 0;
+  let hcTx = 0, hcTy = 0, hcPx = 0, hcPy = 0;
+  let hcBound = false;
+
+  function setupHover() {
+    hc = document.getElementById("hovercard");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const canHover = window.matchMedia("(hover: hover)").matches;
+    if (!hc || !canHover) return;
+
+    /* 换页后复位运行态：旧的 hc 已随 body 销毁，这里指向新节点并清空状态 */
+    hcCur = null;
+    hcVisible = false;
+    if (hcRaf) { cancelAnimationFrame(hcRaf); hcRaf = 0; }
+    window.clearTimeout(hcShowTimer);
+    window.clearTimeout(hcHideTimer);
+
+    const setText = (sel, val) => { const el = hc.querySelector(sel); if (el) el.textContent = val; };
+    const setDisp = (sel, val) => { const el = hc.querySelector(sel); if (el) el.style.display = val; };
+
+    const fill = (card) => {
+      if (!hc) return;
+      const d = card.dataset;
+      setText(".hc-kind", d.kindLabel || d.kind || "");
+      setText(".hc-date", d.date || "");
+      setText(".hc-title", d.title || "");
+      setText(".hc-summary", d.summary || "");
+      setDisp(".hc-summary", d.summary ? "" : "none");
+      setText(".hc-meta", d.meta || "");
+      setDisp(".hc-meta", d.meta ? "" : "none");
+      const dot = hc.querySelector(".hc-dot");
+      if (dot) dot.style.background = d.color || "var(--accent)";
+      const tags = (d.tags || "").split(",").filter(Boolean).slice(0, 6);
+      const tagsEl = hc.querySelector(".hc-tags");
+      if (tagsEl) {
+        tagsEl.innerHTML = "";
+        tags.forEach((t) => {
+          const s = document.createElement("span");
+          s.textContent = t;
+          tagsEl.appendChild(s);
+        });
+        tagsEl.style.display = tags.length ? "" : "none";
+      }
+    };
+
+    const place = (x, y) => {
+      if (!hc) return;
+      const w = hc.offsetWidth;
+      const h = hc.offsetHeight;
+      let nx = x + 18;
+      let ny = y + 20;
+      if (nx + w > window.innerWidth - 16) nx = x - w - 18;
+      if (nx < 16) nx = 16;
+      if (ny + h > window.innerHeight - 16) ny = y - h - 20;
+      if (ny < 16) ny = 16;
+      hcTx = nx;
+      hcTy = ny;
+      if (reduce) {
+        hcPx = hcTx;
+        hcPy = hcTy;
+        hc.style.transform = `translate3d(${hcPx}px, ${hcPy}px, 0)`;
+      }
+    };
+
+    const tick = () => {
+      if (!hc || !hcVisible) { hcRaf = 0; return; }
+      hcPx += (hcTx - hcPx) * 0.18;
+      hcPy += (hcTy - hcPy) * 0.18;
+      hc.style.transform = `translate3d(${hcPx.toFixed(1)}px, ${hcPy.toFixed(1)}px, 0)`;
+      hcRaf = requestAnimationFrame(tick);
+    };
+
+    const show = (x, y) => {
+      if (!hc) return;
+      place(x, y);
+      hcPx = hcTx;
+      hcPy = hcTy;
+      hc.style.transform = `translate3d(${hcPx}px, ${hcPy}px, 0)`;
+      hc.classList.add("on");
+      hcVisible = true;
+      if (!reduce && !hcRaf) hcRaf = requestAnimationFrame(tick);
+    };
+
+    const hide = () => {
+      if (!hc) return;
+      hc.classList.remove("on");
+      hcVisible = false;
+      if (hcRaf) { cancelAnimationFrame(hcRaf); hcRaf = 0; }
+    };
+
+    /* document/window 监听只在首次绑一次（window 换页后保留），闭包引用模块级
+       hc / hcCur / hcVisible / show / hide，换页后由 setupHover 刷新 hc 指向新节点。 */
+    if (!hcBound) {
+      hcBound = true;
+      document.addEventListener("pointerover", (e) => {
+        if (!hc) return;
+        const t = e.target;
+        const card = t?.closest?.(".card[data-hc]") as HTMLElement | null;
+        if (!card || card === hcCur) return;
+        hcCur = card;
+        window.clearTimeout(hcHideTimer);
+        window.clearTimeout(hcShowTimer);
+        if (hcVisible) { fill(card); place(e.clientX, e.clientY); return; }
+        const x0 = e.clientX, y0 = e.clientY;
+        hcShowTimer = window.setTimeout(() => { fill(card); show(x0, y0); }, 400);
+      }, { passive: true });
+
+      document.addEventListener("pointermove", (e) => {
+        if (!hc) return;
+        if (!hcCur || !hcVisible) return;
+        place(e.clientX, e.clientY);
+      }, { passive: true });
+
+      document.addEventListener("pointerout", (e) => {
+        if (!hc) return;
+        const t = e.target;
+        const card = t?.closest?.(".card[data-hc]") as HTMLElement | null;
+        if (!card || card !== hcCur) return;
+        const to = e.relatedTarget as Node | null;
+        if (to && card.contains(to)) return;
+        hcCur = null;
+        window.clearTimeout(hcShowTimer);
+        hcHideTimer = window.setTimeout(hide, 120);
+      }, { passive: true });
+
+      document.addEventListener("keydown", (e) => { if (!hc) return; if (e.key === "Escape") hide(); });
+      window.addEventListener("scroll", () => { if (hc && hcVisible) hide(); }, { passive: true });
+    }
+  }
+  document.addEventListener("astro:page-load", setupHover);
+</script>

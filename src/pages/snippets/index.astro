@@ -1,45 +1,13 @@
 ---
-import { getCollection } from "astro:content";
 import Base from "../../layouts/Base.astro";
+import ContentList from "../../components/ContentList.astro";
 import { copy } from "../../copy";
-import { byDateDesc, fmtDate, isPublished } from "../../lib/format";
-
-const snippets = byDateDesc(
-  (await getCollection("snippets")).filter((s) => isPublished(s.data))
-);
 ---
 
 <Base title={copy.listPages.snippets.title}>
-  <div class="page-head bg-grid">
-    <div class="wrap">
-      <h1 class="page-title">{copy.listPages.snippets.title}</h1>
-      <p class="page-sub">{snippets.length} {copy.listPages.snippets.sub}</p>
-    </div>
-  </div>
-
-  <div class="wrap">
-    <section class="section" data-reveal>
-      <div class="note-grid">
-        {
-          snippets.map((s) => (
-            <a class="note-card" href={`/snippets/${s.id}/`}>
-              <div class="note-course">
-                {s.data.std} · {fmtDate(s.data.date)}
-              </div>
-              <h2 class="note-title">{s.data.title}</h2>
-              <div class="note-foot">
-                {s.data.run ? (
-                  <span style="color:var(--accent);">
-                    {copy.snippet.runnable}
-                  </span>
-                ) : (
-                  <span>{copy.snippet.readonly}</span>
-                )}
-              </div>
-            </a>
-          ))
-        }
-      </div>
-    </section>
-  </div>
+  <ContentList
+    scope="snippets"
+    heading={copy.listPages.snippets.title}
+    sub={copy.listPages.snippets.sub}
+  />
 </Base>

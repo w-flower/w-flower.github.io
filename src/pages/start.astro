@@ -1,0 +1,196 @@
+---
+/**
+ * 起始页 / Start Page（柠檬风）
+ *   中央大搜索（回车跳知识库带词） + 圆角磁贴快速入口 + 实时时钟
+ *   设计取「柠檬起始页」的干净、留白、圆角、中央聚焦，融进本站玻璃主题。
+ */
+import Base from "../layouts/Base.astro";
+import { site } from "../site.config";
+
+const tiles = [
+  { href: "/notes/", label: "笔记", en: "notes", vb: "0 0 24 24", d: "M4 5.5A1.5 1.5 0 0 1 5.5 4H18a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5.5A1.5 1.5 0 0 1 4 18.5zM8 8.5h7M8 12h7M8 15.5h4" },
+  { href: "/kb/", label: "知识库", en: "kb", vb: "0 0 24 24", d: "M12 3 3 8l9 5 9-5-9-5ZM3 8v8l9 5 9-5V8M12 13v8" },
+  { href: "/snippets/", label: "代码", en: "code", vb: "0 0 24 24", d: "M9 6.5 4 12l5 5.5M15 6.5 20 12l-5 5.5" },
+  { href: "/micro/", label: "随笔", en: "micro", vb: "0 0 24 24", d: "M15.5 4.5 19.5 8.5 8.5 19.5H4.5v-4zM13.5 6.5 17.5 10.5" },
+  { href: "/danmaku/", label: "弹幕墙", en: "danmaku", vb: "0 0 24 24", d: "M3 6h18v9H8l-4 4V6Z" },
+  { href: "/about/", label: "关于", en: "about", vb: "0 0 24 24", d: "M12 8.2a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2ZM4.5 20c.9-3.6 3.9-5.6 7.5-5.6s6.6 2 7.5 5.6" },
+  { href: "/rss.xml", label: "订阅", en: "rss", vb: "0 0 24 24", d: "M4 11a9 9 0 0 1 9 9M4 5a15 15 0 0 1 15 15M5 19h.01" },
+];
+---
+
+<Base hideFooter>
+  <div class="start">
+    <div class="start-core">
+      <p class="start-hello" id="hello">你好</p>
+      <h1 class="start-name">{site.name}</h1>
+      <p class="start-clock" id="clock">--:--:--</p>
+      <p class="start-date" id="date">----</p>
+
+      <form class="start-search" id="startForm" action="/kb/" method="get">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" /><path d="m16.5 16.5 4 4" stroke-linecap="round" />
+        </svg>
+        <input
+          type="search"
+          name="q"
+          id="startInput"
+          placeholder="搜点什么，回车进知识库…"
+          aria-label="搜索"
+          autocomplete="off"
+        />
+      </form>
+
+      <nav class="start-tiles" aria-label="快速入口">
+        {
+          tiles.map((t) => (
+            <a class="tile" href={t.href}>
+              <svg viewBox={t.vb} fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={`<path d="${t.d}"/>`} />
+              <span class="tile-label">{t.label}</span>
+              <span class="tile-en">{t.en}</span>
+            </a>
+          ))
+        }
+      </nav>
+    </div>
+    <p class="start-foot">把这里当书签主页 · 内容都在本地与云端同步</p>
+  </div>
+</Base>
+
+<style>
+  .start {
+    min-height: calc(100vh - var(--nav-h));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .start-core {
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: floatUp 0.7s ease both;
+  }
+  @keyframes floatUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+  .start-hello {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: 15px;
+    letter-spacing: 0.16em;
+  }
+  .start-name {
+    margin: 6px 0 2px;
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: linear-gradient(120deg, var(--accent), #8ad0c0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .start-clock {
+    margin: 2px 0 0;
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+  }
+  .start-date {
+    margin: 2px 0 0;
+    color: var(--ink-3);
+    font-size: 14px;
+  }
+  .start-search {
+    margin: 26px 0 0;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    background: var(--glass-strong);
+    border: 1px solid var(--glass-line);
+    border-radius: var(--pill);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(var(--blur));
+    transition: 0.22s;
+  }
+  .start-search:focus-within {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-lift);
+  }
+  .start-search svg { width: 20px; height: 20px; color: var(--ink-3); flex: none; }
+  .start-search input {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 16px;
+    color: var(--ink);
+    outline: none;
+  }
+  .start-tiles {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    width: 100%;
+    max-width: 520px;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 8px;
+    background: var(--glass);
+    border: 1px solid var(--glass-line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(var(--blur));
+    text-decoration: none;
+    color: var(--ink);
+    transition: 0.2s;
+  }
+  .tile:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-lift);
+  }
+  .tile svg { width: 26px; height: 26px; color: var(--accent); }
+  .tile-label { font-size: 14px; font-weight: 600; }
+  .tile-en { font-size: 11px; color: var(--ink-3); letter-spacing: 0.08em; }
+  .start-foot {
+    margin-top: 34px;
+    color: var(--ink-3);
+    font-size: 12.5px;
+  }
+  @media (max-width: 520px) {
+    .start-tiles { grid-template-columns: repeat(3, 1fr); }
+    .start-name { font-size: 32px; }
+  }
+</style>
+
+<script>
+  const clock = document.getElementById("clock");
+  const dateEl = document.getElementById("date");
+  const hello = document.getElementById("hello");
+  const wk = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const pad = (n) => String(n).padStart(2, "0");
+  const tick = () => {
+    const d = new Date();
+    if (clock) clock.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    if (dateEl) dateEl.textContent = `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${wk[d.getDay()]}`;
+    const h = d.getHours();
+    if (hello) hello.textContent = h < 6 ? "夜深了" : h < 12 ? "早上好" : h < 18 ? "下午好" : "晚上好";
+  };
+  tick();
+  setInterval(tick, 1000);
+</script>

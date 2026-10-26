@@ -1,0 +1,230 @@
+---
+/**
+ * ============================================================
+ *  弹幕墙
+ * ------------------------------------------------------------
+ *  把所有随笔（micro）变成从右往左飘的弹幕。
+ *
+ *  为什么用随笔：micro 就是 1–3 句话，天生适合当弹幕。
+ *  数量天然可控（目前个位数），所以不会变成粒子海。
+ *
+ *  这是方案里唯一的「例外条款」——连续动画。三个约束把它压住：
+ *    1. 独立彩蛋页，不进首页，不进任何列表页
+ *    2. 粒子数 = 随笔条数，不做复制不做循环
+ *    3. 可一键暂停，且默认就暂停（要主动点才开始）
+ *  真机掉帧就退化成下面的静态列表，不用改组件。
+ * ============================================================
+ */
+import Base from "../layouts/Base.astro";
+import { getCollection } from "astro:content";
+import { copy } from "../copy";
+import { byDateDesc, fmtDate, isPublished } from "../lib/format";
+
+/* 页面内的脚本要拿到随笔文本，所以内容集合要在 frontmatter 里先取出来。
+   Astro 的 frontmatter 和组件 script 是分开编译的，
+   define:vars 只能传常量表达式，取过的集合正好可以直接传。 */
+const micros = byDateDesc(
+  (await getCollection("micro")).filter((p) => isPublished(p.data))
+);
+
+const plain = (s = "") =>
+  s
+    .replace(/\s+/g, " ")
+    .trim();
+
+/* 弹幕轨道数。轨道太多会互相压，太少会排成整齐的队列失去「弹幕感」。
+   固定 6 条，窄屏再由 CSS 收到 4 条。 */
+const lanes = 6;
+---
+
+<Base title={copy.danmaku.title} calmBg>
+  <div class="wrap danmaku-page">
+    <header class="page-head">
+      <h1 class="page-title">{copy.danmaku.title}</h1>
+      <p class="page-sub">{copy.danmaku.sub}</p>
+    </header>
+
+    <div class="dm-note glass">
+      <p>{copy.danmaku.why}</p>
+      <p class="dm-note-k">{copy.danmaku.count.replace("{n}", String(micros.length))}</p>
+    </div>
+
+    <!-- 静态列表先渲染出来。弹幕只是它的「动态视图」，
+         关掉动效、或者 JS 挂了，这里依然是一份完整可读的随笔列表。 -->
+    <ol class="dm-static" id="dmStatic">
+      {
+        micros.map((m) => (
+          <li class="dm-static-row">
+            <time class="dm-static-d" datetime={m.data.date.toISOString()}>
+              {fmtDate(m.data.date)}
+            </time>
+            <span class="dm-static-t">{plain(m.body ?? "") || "（空）"}</span>
+            {m.data.mood && <span class="dm-static-m">{m.data.mood}</span>}
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="dm-stage glass" id="dmStage" hidden>
+      <div class="dm-field" id="dmField"></div>
+      <div class="dm-bar">
+        <button
+          type="button"
+          class="dm-btn"
+          id="dmToggle"
+          data-pause={copy.danmaku.pause}
+        >
+          {copy.danmaku.play}
+        </button>
+        <span class="dm-bar-hint">{copy.danmaku.pauseHint}</span>
+      </div>
+    </div>
+
+    <p class="dm-fallback" id="dmFallback" hidden>{copy.danmaku.fallback}</p>
+
+    <a class="back-link" href="/micro/">{copy.danmaku.back}</a>
+  </div>
+</Base>
+
+<script define:vars={{ lanes, micros: micros.map((m) => ({
+  t: plain(m.body ?? "") || "（空）",
+  m: m.data.mood ?? "",
+})) }}>
+  /* 按钮两种文案直接从 DOM 上读，不在脚本里再抄一份 ——
+     抄两份一定会走偏（已经踩过一次：copy 没传进 define:vars，
+     按钮文案更新时报错，"暂停"永远显示成 "开始"）。 */
+  let dmStage, dmField, dmToggle, dmFallback;
+  let dmItems, dmLanes, dmDuration = 16, dmLaneH = 46;
+  let dmRunning = false, dmRaf = 0, dmLast = 0, dmLaneBusy = [], dmNodes = [], dmLastPick = -1;
+  let dmResizeBound = false, dmVisBound = false;
+
+  const dmCalcLanes = () => {
+    const w = (dmField ? dmField.clientWidth : 0) || 1000;
+    const room = Math.max(300, w * 0.5);
+    return Math.max(2, Math.min(dmLanes, Math.floor(room / 300) + 2));
+  };
+  const dmRefreshLanes = () => {
+    if (!dmField) return;
+    const n = dmCalcLanes();
+    dmField.style.height = `${n * dmLaneH + 16}px`;
+    if (n === dmLaneBusy.length) return;
+    dmLaneBusy = Array.from({ length: n }, () => 0);
+  };
+  const dmPickItem = () => {
+    if (dmItems.length <= 1) return 0;
+    let k = Math.floor(Math.random() * dmItems.length);
+    for (let tries = 0; tries < 8 && k === dmLastPick; tries++) {
+      k = Math.floor(Math.random() * dmItems.length);
+    }
+    dmLastPick = k;
+    return k;
+  };
+  const dmSpawn = (now) => {
+    const lane = dmLaneBusy.findIndex((end) => end <= now);
+    if (lane === -1) return;
+    dmLaneBusy[lane] = now + dmDuration * 1000 + 900;
+    const it = dmItems[dmPickItem()];
+    if (!it) return;
+    const el = document.createElement("div");
+    el.className = "dm-item";
+    if (it.m) el.dataset.mood = "1";
+    el.textContent = it.t;
+    el.style.top = `${lane * dmLaneH + 12}px`;
+    dmField.appendChild(el);
+    el.animate(
+      [
+        { opacity: 0, transform: "translateX(24px)" },
+        { opacity: 1, transform: "translateX(0)" },
+      ],
+      { duration: 260, easing: "ease-out", fill: "both" }
+    );
+    dmNodes.push({ el, born: now, lane });
+  };
+  const dmTick = (now) => {
+    dmRaf = 0;
+    if (!dmRunning || !dmField) return;
+    if (!dmLast) dmLast = now;
+    const w = dmField.clientWidth;
+    for (let i = dmNodes.length - 1; i >= 0; i--) {
+      const n = dmNodes[i];
+      const p = (now - n.born) / 1000 / dmDuration;
+      if (p >= 1) {
+        n.el.remove();
+        dmNodes.splice(i, 1);
+        continue;
+      }
+      n.el.style.transform = `translateX(${w - (p * (w + n.el.offsetWidth))}px)`;
+    }
+    if (now - dmLast > 1000) {
+      dmSpawn(now);
+      dmLast = now;
+    }
+    dmRaf = requestAnimationFrame(dmTick);
+  };
+  const dmStart = () => {
+    if (dmRunning || !dmField || !dmItems || dmItems.length === 0) return;
+    dmRunning = true;
+    dmLast = 0;
+    for (let i = 0; i < Math.min(4, dmLaneBusy.length); i++) {
+      dmSpawn(performance.now() + i * 1500);
+    }
+    dmRaf = requestAnimationFrame(dmTick);
+  };
+  const dmStop = () => {
+    dmRunning = false;
+    if (dmRaf) cancelAnimationFrame(dmRaf);
+    dmRaf = 0;
+  };
+
+  function setupDanmaku() {
+    dmStage = document.getElementById("dmStage");
+    dmField = document.getElementById("dmField");
+    dmToggle = document.getElementById("dmToggle");
+    dmFallback = document.getElementById("dmFallback");
+
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (calm.matches) {
+      if (dmFallback) dmFallback.hidden = false;
+    } else if (dmStage && dmField && dmToggle) {
+      dmStage.hidden = false;
+      dmItems = micros.map((m) => ({ t: m.t, m: m.m }));
+      dmLanes = lanes;
+      dmRunning = false;
+      dmRaf = 0;
+      dmLast = 0;
+      dmNodes = [];
+      dmLastPick = -1;
+      dmRefreshLanes();
+      if (!dmResizeBound) {
+        dmResizeBound = true;
+        window.addEventListener("resize", dmRefreshLanes);
+      }
+
+      const LABEL_PLAY = dmToggle.textContent?.trim() ?? "▶ 开始";
+      const LABEL_PAUSE = dmToggle.dataset.pause?.trim() || "⏸ 暂停";
+
+      dmToggle.addEventListener("click", () => {
+        if (dmRunning) {
+          dmStop();
+          dmToggle.textContent = LABEL_PLAY;
+          dmField.dataset.paused = "1";
+        } else {
+          delete dmField.dataset.paused;
+          dmStart();
+          dmToggle.textContent = LABEL_PAUSE;
+        }
+      });
+      dmField.dataset.paused = "1";
+
+      if (!dmVisBound) {
+        dmVisBound = true;
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) dmStop();
+          else if (dmToggle.textContent === LABEL_PAUSE) dmStart();
+        });
+      }
+    }
+  }
+  document.addEventListener("astro:page-load", setupDanmaku);
+
+</script>

@@ -8,16 +8,23 @@
  */
 
 export const site = {
-  name: "未命名",
-  description: "学习笔记、C++ 代码与日常随笔。",
-  url: "https://example.com",
+  name: "DHua",
+  description: "DHua的个人博客",
+  url: "https://w-flower.github.io",
   lang: "zh-CN",
 
   author: {
     name: "DHua",
-    // 头像放 public/ 下，填文件名；留空则不显示
-    avatar: "",
-    bio: "在读，写代码，偶尔写点别的。",
+    // 头像放 public/ 下，填 "/文件名"；留空则用名字首字母
+    avatar: "/avatar.jpg",
+    bio: "一个大学牲。",
+  },
+
+  /* ── 外链：填了才会显示图标，留空就不显示 ────────── */
+  social: {
+    github: "https://github.com/w-flower?tab=repositories",
+    bilibili: "https://space.bilibili.com/1450118374",
+    email: "1941938701@qq.com",
   },
 
   /* ── 怪元素开关：全部可单独关，关掉不影响构建 ────────── */
