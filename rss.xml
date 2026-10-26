@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>DHua</title>
+    <link>https://w-flower.github.io</link>
+    <description>DHua的个人博客</description>
+    <language>zh-CN</language>
+    <item>
+      <title>附录A 三角函数：速查与推导</title>
+      <link>https://w-flower.github.io/notes/附录a-三角函数速查/</link>
+      <guid>https://w-flower.github.io/notes/附录a-三角函数速查/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Wed, 21 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>附录B 可导必连续：证明与注记</title>
+      <link>https://w-flower.github.io/notes/附录b-可导必连续/</link>
+      <guid>https://w-flower.github.io/notes/附录b-可导必连续/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Wed, 21 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>13 一致连续：一个 δ 管整个区间</title>
+      <link>https://w-flower.github.io/notes/13-一致连续/</link>
+      <guid>https://w-flower.github.io/notes/13-一致连续/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Tue, 20 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>12 闭区间连续函数三大定理：紧性的回报</title>
+      <link>https://w-flower.github.io/notes/12-闭区间连续函数三大定理/</link>
+      <guid>https://w-flower.github.io/notes/12-闭区间连续函数三大定理/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Mon, 19 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>11 连续与间断点：什么叫&quot;表现良好&quot;</title>
+      <link>https://w-flower.github.io/notes/11-连续与间断点/</link>
+      <guid>https://w-flower.github.io/notes/11-连续与间断点/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Sun, 18 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>10 无穷大与无穷小：等价替换表及其边界</title>
+      <link>https://w-flower.github.io/notes/10-无穷大与无穷小/</link>
+      <guid>https://w-flower.github.io/notes/10-无穷大与无穷小/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Sat, 17 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>09 两个重要极限：工具交付日</title>
+      <link>https://w-flower.github.io/notes/09-两个重要极限/</link>
+      <guid>https://w-flower.github.io/notes/09-两个重要极限/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Fri, 16 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>08 数列收敛三大判定：不猜极限，先证存在</title>
+      <link>https://w-flower.github.io/notes/08-数列收敛三大判定/</link>
+      <guid>https://w-flower.github.io/notes/08-数列收敛三大判定/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Thu, 15 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>07 夹逼准则：夹逼组的构造方法</title>
+      <link>https://w-flower.github.io/notes/07-夹逼三板斧/</link>
+      <guid>https://w-flower.github.io/notes/07-夹逼三板斧/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Wed, 14 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>06 极限五大性质：把 ε-δ 封装成武器库</title>
+      <link>https://w-flower.github.io/notes/06-极限五大性质/</link>
+      <guid>https://w-flower.github.io/notes/06-极限五大性质/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Tue, 13 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>05 极限运算与渐近线：四则运算、复合换元与三类渐近线</title>
+      <link>https://w-flower.github.io/notes/05-极限运算与渐近线/</link>
+      <guid>https://w-flower.github.io/notes/05-极限运算与渐近线/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Mon, 12 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>04 数列极限与 Heine 定理：用归结原则把函数极限翻译成数列极限</title>
+      <link>https://w-flower.github.io/notes/04-数列极限与heine定理/</link>
+      <guid>https://w-flower.github.io/notes/04-数列极限与heine定理/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Sun, 11 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>03 极限的定义：ε-δ 把无限接近写成能证明的命题</title>
+      <link>https://w-flower.github.io/notes/03-极限的定义/</link>
+      <guid>https://w-flower.github.io/notes/03-极限的定义/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Sat, 10 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>02 映射与函数：定义域与对应法则决定一个函数</title>
+      <link>https://w-flower.github.io/notes/02-映射与函数/</link>
+      <guid>https://w-flower.github.io/notes/02-映射与函数/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Fri, 09 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>01 集合与确界：无限接近之前先立起的三件工具</title>
+      <link>https://w-flower.github.io/notes/01-集合与确界/</link>
+      <guid>https://w-flower.github.io/notes/01-集合与确界/</guid>
+      <description>工科数学分析 · growing</description>
+      <pubDate>Thu, 08 Oct 2026 00:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
