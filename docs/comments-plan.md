@@ -1,7 +1,7 @@
 # 评论区方案（公开 / 匿名 / 仅双方可见）
 
-> 这份是设计说明 + 上线步骤。代码已经写完并通过端到端验证，
-> 差的是把一个后端地址填进 `src/site.config.ts`。
+> 这份是设计说明 + 上线记录。**2026-11-02 已接入真实 Supabase 并上线**，
+> 现在文章页底部就有评论区，三种可见性都用真实请求验过。
 
 ---
 
@@ -89,48 +89,64 @@ RLS 策略 `using (visibility = 'public')`。匿名访客的 select 只能看到
 
 ---
 
-## 五、你要做的两步
+## 五、现在是什么状态（2026-11-02 已上线）
 
-### 1）跑一遍 SQL
+后端已经开好并跑完建表，**不需要再做任何操作**：
 
-Supabase 建一个免费项目 → SQL Editor → 粘贴 `docs/comments-schema.sql` 全文 → Run。
-跑之前把文件里这行的口令改成你自己的：
+| 项 | 值 |
+|---|---|
+| 项目 | Supabase 免费版，ref `nglgymxsnnlaqxvmvrxo` |
+| 区域 | eu-west-1（建项目时的默认值） |
+| 端点 | `https://nglgymxsnnlaqxvmvrxo.supabase.co` |
+| anon key | 在 `src/site.config.ts`（公开键，进前端是设计如此） |
+| **站长口令** | `dhua-cmt-8f3k2m7q`（存在 `.local/评论后台凭据.md`，不进仓库） |
+
+改成自己的口令：Supabase → SQL Editor：
 
 ```sql
-insert into public.cmt_admin (id, pass_hash)
-values (1, encode(digest('CHANGE-ME-站长口令', 'sha256'), 'hex'))
+update public.cmt_admin
+set pass_hash = encode(extensions.digest(新口令, sha256), hex)
+where id = 1;
 ```
 
-### 2）填两个值
+### 建这套东西踩到的两个坑（换后端时还会遇到）
 
-`src/site.config.ts`：
-
-```ts
-comments: {
-  endpoint: "https://xxxxxxxx.supabase.co",   // Project URL
-  anonKey: "sb_publishable_xxx",              // publishable / anon key
-},
-```
-
-anonKey 是**公开键**，进前端是设计如此 —— 真正挡人的是 RLS，不是这串字符。
-**绝对不要**把 `service_role` / `secret` 键填进来（它绕过 RLS）。
-
-填完重新部署，文章页底部就会出现评论区。没填就整块不渲染，不留空壳。
+1. **Supabase 把扩展装在 `extensions` schema**，不是 `public`。
+   `create extension if not exists pgcrypto` 之后直接写 `digest(...)` 会报
+   `function digest(text, unknown) does not exist` —— 必须写成 `extensions.digest(...)`。
+2. **私密行不能用 `Prefer: return=representation`**。PostgREST 的 RETURNING 也要过 RLS，
+   私密行对 anon 没有 select 权限，插入会直接报
+   `new row violates row-level security policy`（HTTP 401），看起来像"策略配错了"，其实是回读被拒。
+   前端因此改成 `return=minimal`，写完再用 `cmt_thread` 把真行拉回来。
 
 ---
 
 ## 六、已经验证过什么
 
-`scripts/test-comments.mjs` 对着一个本地假 PostgREST（`scripts/comments-mock.mjs`）
-跑完整链路，13 项全过。关键几条：
+分三层，全部对着**真实后端**跑：
 
-- 空昵称能发，渲染成「匿名」
-- 私密留言在本机可见
-- **换一个干净的浏览器上下文（等于换设备 + 清缓存）：私密留言看不见，切到「仅你和我」是空的**
-- 直接打 `GET /rest/v1/comments`：私密行数 = 0
-- 拿对口令能找回；站长口令能回复；回复只出现在那一串里，不出现在公开列表
+**A. 接口层（11 项，`node .tmp_sb/live-test2.mjs` 类脚本）**
 
-第 3、4 条是重点 —— 如果它们不成立，这个功能就是装饰品。
+- 匿名公开发言 ✓；私密留言用 `return=minimal` 写入 ✓
+- 直接 `GET /rest/v1/comments?slug=...` 拿不到私密行 ✓
+- **全表扫描 `?limit=1000` 也拿不到私密行** ✓
+- 错口令 `cmt_thread` 返回 0 条 ✓；对口令返回自己那串 ✓
+- 错站长口令 `cmt_reply` 被拒（HTTP 400）✓
+- 站长回复写入后，公开列表仍然是 1 条（回复跟着私密串一起隐藏）✓
+- 访客伪造 `is_owner: true` 被 RLS 挡住（HTTP 401）✓
+
+**B. 浏览器层（线上 `w-flower.github.io` 真实点击）**
+
+- 发公开留言 → 立刻出现在列表并显示「已发表。」✓
+- 切「仅你和我」发私密留言 → 自己能看见，界面把口令明文交代并提示已存本机 ✓
+- 切回公开页签：私密那条不在 ✓
+- **干净浏览器上下文（等于换设备 + 清缓存）**：只看到公开留言；切「仅你和我」是空的 ✓
+- 另一台设备输口令 → 私密串找回 ✓
+- 站长口令 → 出现「回复」按钮，回复写入后署名「站长」、带竖向强调线 ✓
+
+**C. 明暗两套外观**：计算样式 + 截图都看过，正文、时间、徽标、回复块在两种主题下都读得清。
+
+第 2 条和第 4 条是重点 —— 如果它们不成立，这个功能就是装饰品。
 
 ---
 

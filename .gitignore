@@ -19,3 +19,6 @@ _tmp_*
 _backup-content-*/
 preview/
 dist-cmt/
+.local/
+.tmp_sb/
+.tmp_probe/

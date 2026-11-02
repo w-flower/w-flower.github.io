@@ -50,8 +50,9 @@ export const site = {
      anonKey: 形如 sb_publishable_xxx / eyJhbGciOi...（这是公开键，可以进前端）
      注意：service_role / secret key 绝对不能填在这里。 */
   comments: {
-    endpoint: "",
-    anonKey: "",
+    endpoint: "https://nglgymxsnnlaqxvmvrxo.supabase.co",
+    anonKey:
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5nbGd5bXhzbm5sYXF4dm12cnhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM2MTAwNzYsImV4cCI6MjEwOTE4NjA3Nn0.qdFqI4WCp6kJcLQMqTwpAIdXOuxHOxTe_vHezyX8_6g",
   },
 };
 

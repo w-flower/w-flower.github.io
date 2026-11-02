@@ -97,12 +97,27 @@ export async function postComment({ slug, nick, body, secret }: PostInput): Prom
   };
   if (private_ && secret) row.secret_hash = await sha256(secret);
 
-  const r = await fetch(`${base()}/rest/v1/comments?select=${FIELDS}`, {
+  /* 私密行对 anon 没有任何 select 权限，所以**不能**要 return=representation：
+     PostgREST 的 RETURNING 也要过 RLS，会直接报
+     「new row violates row-level security policy」。
+     这里用 return=minimal 只写不回，界面随后用 cmt_thread 拉真行。 */
+  const r = await fetch(`${base()}/rest/v1/comments`, {
     method: "POST",
-    headers: headers({ Prefer: "return=representation" }),
+    headers: headers({ Prefer: private_ ? "return=minimal" : "return=representation" }),
     body: JSON.stringify(row),
   });
   if (!r.ok) throw new Error(await errText(r));
+
+  if (private_) {
+    return {
+      id: "",
+      parent_id: null,
+      nick: (row.nick as string | null) ?? null,
+      body: row.body as string,
+      is_owner: false,
+      created_at: new Date().toISOString(),
+    };
+  }
   const rows = await r.json();
   if (!rows.length) throw new Error("写入被拒绝（检查 RLS 策略）");
   return rows[0];

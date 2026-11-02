@@ -17,7 +17,9 @@
 --    「拿对钥匙才能开这把锁」，而且锁孔（hash）不对外暴露。
 -- ============================================================
 
-create extension if not exists pgcrypto;
+-- Supabase 默认把扩展装在 extensions 这个 schema 里（不是 public），
+-- 所以下面所有函数都写成 extensions.digest(...)，函数体里的 search_path 也不必再挂它。
+create extension if not exists pgcrypto with schema extensions;
 
 -- ---------- 表 ----------
 create table if not exists public.comments (
@@ -53,7 +55,7 @@ create table if not exists public.cmt_admin (
 -- 首次运行请把 'CHANGE-ME-站长口令' 换成你自己的口令。
 -- 已经有记录了就不会覆盖，重复跑是安全的。
 insert into public.cmt_admin (id, pass_hash)
-values (1, encode(digest('CHANGE-ME-站长口令', 'sha256'), 'hex'))
+values (1, encode(extensions.digest('CHANGE-ME-站长口令', 'sha256'), 'hex'))
 on conflict (id) do nothing;
 
 -- ---------- 限流：同一 IP 10 分钟内最多 5 条 ----------
@@ -74,7 +76,7 @@ begin
     ),
     ''
   );
-  new.ip_hash := encode(digest(coalesce(nullif(ip, ''), 'unknown'), 'sha256'), 'hex');
+  new.ip_hash := encode(extensions.digest(coalesce(nullif(ip, ''), 'unknown'), 'sha256'), 'hex');
 
   select count(*) into cnt
   from public.comments
@@ -129,7 +131,7 @@ as $$
   from public.comments
   where slug = p_slug
     and visibility = 'private'
-    and secret_hash = encode(digest(p_secret, 'sha256'), 'hex')
+    and secret_hash = encode(extensions.digest(p_secret, 'sha256'), 'hex')
   order by created_at asc;
 $$;
 
@@ -150,7 +152,7 @@ declare
   row    public.comments;
   ok     boolean;
 begin
-  select (pass_hash = encode(digest(p_pass, 'sha256'), 'hex')) into ok
+  select (pass_hash = encode(extensions.digest(p_pass, 'sha256'), 'hex')) into ok
   from public.cmt_admin where id = 1;
 
   if not coalesce(ok, false) then
