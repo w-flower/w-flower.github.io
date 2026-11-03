@@ -74,125 +74,65 @@
       <div class="bt-grain"></div>
       <div class="bt-vignette"></div>
 
-      <!-- 黑色大肥鱼 -->
-      <div class="bt-fish">
-        <svg viewBox="0 0 560 320" role="img" aria-label="黑色大肥鱼">
+      <!-- 罗小黑：黑暗里先睁眼，再浮出整个剪影 -->
+      <div class="bt-cat">
+        <svg class="bt-cat-svg" viewBox="37 0 400 400" role="img" aria-label="罗小黑">
           <defs>
-            <linearGradient id="fishBody" x1="0" y1="0" x2="0.25" y2="1">
-              <stop offset="0%" stop-color="#16253f" />
-              <stop offset="46%" stop-color="#0a1220" />
-              <stop offset="100%" stop-color="#020408" />
-            </linearGradient>
-            <linearGradient id="fishRim" x1="0" y1="0" x2="0.8" y2="1">
-              <stop offset="0%" stop-color="rgba(255,255,255,0.92)" />
-              <stop offset="46%" stop-color="rgba(150,195,255,0.45)" />
-              <stop offset="100%" stop-color="rgba(91,141,239,0.65)" />
-            </linearGradient>
-            <radialGradient id="fishGlow" cx="0.42" cy="0.38" r="0.6">
-              <stop offset="0%" stop-color="rgba(91,141,239,0.22)" />
-              <stop offset="100%" stop-color="rgba(91,141,239,0)" />
+            <radialGradient id="lxIris" cx="0.42" cy="0.3" r="0.72">
+              <stop offset="0" stop-color="#b6f6d8" />
+              <stop offset="0.48" stop-color="#48cc99" />
+              <stop offset="1" stop-color="#0f5f49" />
             </radialGradient>
+            <!-- 冷光勾边：基于 alpha 的投影，叠几层就是一圈轮廓光。
+                 因为形状都是同色填充、没有 stroke，接缝不会露线。 -->
+            <filter id="lxRim" x="-40%" y="-40%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#aacdff" flood-opacity="0.55" />
+              <feDropShadow dx="0" dy="0" stdDeviation="9" flood-color="#5b8def" flood-opacity="0.45" />
+            </filter>
           </defs>
 
-          <!-- 背鳍：压在最底下，只露一个尖 -->
-          <path
-            d="M234 80 C 262 40 318 24 354 44 C 320 58 292 72 262 90 Z"
-            fill="#132140"
-            stroke="url(#fishRim)"
-            stroke-width="1.4"
-            stroke-linejoin="round"
-          />
+          <g class="bt-cat-body">
+            <g filter="url(#lxRim)">
+              <!-- 尾巴压在身体下面，根部被身体盖住 -->
+              <path
+                class="bt-cat-tail"
+                d="M268 312 C 332 332 374 308 374 274 C 374 250 354 234 336 240"
+                fill="none"
+                stroke="#0a0f18"
+                stroke-width="20"
+                stroke-linecap="round"
+              />
+              <ellipse cx="200" cy="292" rx="106" ry="88" fill="#0a0f18" />
+              <path d="M126 96 Q 110 54 100 14 Q 144 40 182 74 Z" fill="#0a0f18" />
+              <path d="M274 96 Q 290 54 300 14 Q 256 40 218 74 Z" fill="#0a0f18" />
+              <ellipse cx="200" cy="160" rx="106" ry="106" fill="#0a0f18" />
+            </g>
+          </g>
 
-          <!-- 整条鱼一个轮廓（身子和尾巴不分开画，接缝处就不会有一条线） -->
-          <path
-            d="M60 165
-               C 74 120 118 92 172 78
-               C 244 60 322 86 384 126
-               C 412 110 462 96 518 86
-               C 490 112 466 136 452 160
-               C 466 184 490 208 518 234
-               C 462 224 412 210 384 194
-               C 322 232 268 262 208 258
-               C 140 254 76 218 60 165 Z"
-            fill="url(#fishBody)"
-            stroke="url(#fishRim)"
-            stroke-width="2.4"
-            stroke-linejoin="round"
-          />
+          <!-- 内耳偏绿，比剪影晚一点亮 -->
+          <g class="bt-cat-ear">
+            <path d="M132 88 Q 120 56 114 30 Q 142 44 168 68 Z" fill="#2e7355" />
+            <path d="M268 88 Q 280 56 286 30 Q 258 44 232 68 Z" fill="#2e7355" />
+          </g>
 
-          <!-- 身上一层极淡的辉光，压住纯黑 -->
-          <path
-            d="M60 165
-               C 74 120 118 92 172 78
-               C 244 60 322 86 384 126
-               C 412 110 462 96 518 86
-               C 490 112 466 136 452 160
-               C 466 184 490 208 518 234
-               C 462 224 412 210 384 194
-               C 322 232 268 262 208 258
-               C 140 254 76 218 60 165 Z"
-            fill="url(#fishGlow)"
-          />
+          <!-- 眼睛是整屏唯一的高光，先出现 -->
+          <g class="bt-cat-eye">
+            <ellipse cx="152" cy="164" rx="32" ry="35" fill="#f4f9ff" />
+            <ellipse cx="248" cy="164" rx="32" ry="35" fill="#f4f9ff" />
+            <ellipse cx="154" cy="168" rx="18" ry="24" fill="url(#lxIris)" />
+            <ellipse cx="250" cy="168" rx="18" ry="24" fill="url(#lxIris)" />
+            <circle cx="143" cy="152" r="9" fill="#fff" />
+            <circle cx="239" cy="152" r="9" fill="#fff" />
+            <circle cx="163" cy="182" r="4.2" fill="#fff" opacity="0.8" />
+            <circle cx="259" cy="182" r="4.2" fill="#fff" opacity="0.8" />
+          </g>
 
-          <!-- 胸鳍 -->
-          <path
-            d="M198 200 C 224 222 256 232 284 232 C 258 250 216 242 194 220 Z"
-            fill="#16233a"
-            stroke="rgba(255,255,255,0.45)"
-            stroke-width="1.2"
-            stroke-linejoin="round"
-          />
-
-          <!-- 腮线 -->
-          <path
-            d="M150 108 C 140 134 140 178 152 206"
-            fill="none"
-            stroke="rgba(255,255,255,0.26)"
-            stroke-width="1.6"
-          />
-          <!-- 嘴 -->
-          <path
-            d="M62 174 C 74 184 88 186 100 183"
-            fill="none"
-            stroke="rgba(255,255,255,0.5)"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-          <!-- 肚子上的反光 -->
-          <path
-            d="M126 232 C 200 254 286 240 348 200"
-            fill="none"
-            stroke="rgba(170,210,255,0.3)"
-            stroke-width="4"
-            stroke-linecap="round"
-          />
-          <!-- 脊背扫光：pathLength 归一化成 0–100，靠 dashoffset 从头扫到尾 -->
-          <path
-            class="bt-shine"
-            d="M96 152 C 132 108 190 86 248 84 C 300 82 348 96 382 122"
-            fill="none"
-            stroke="rgba(255,255,255,0.95)"
-            stroke-width="2.6"
-            stroke-linecap="round"
-            filter="drop-shadow(0 0 5px rgba(255,255,255,0.85))"
-            pathLength="100"
-            stroke-dasharray="20 100"
-            stroke-dashoffset="0"
-          />
-          <!-- 眼 -->
-          <circle cx="110" cy="150" r="8" fill="#5b8def" />
-          <circle cx="110" cy="150" r="15" fill="none" stroke="rgba(91,141,239,0.4)" stroke-width="1.2" />
-          <circle cx="107.4" cy="147.4" r="2.4" fill="#dcebff" />
+          <path class="bt-cat-nose" d="M195 215 L 205 215 L 200 222 Z" fill="rgba(255,255,255,0.5)" />
         </svg>
+        <i class="bt-cat-scan"></i>
+        <i class="bt-cat-live"></i>
+        <i class="bt-cat-foot"></i>
       </div>
-
-      <!-- 水痕：托一下，别让鱼像浮在半空 -->
-      <i class="bt-ripple"></i>
-
-      <!-- 气泡 -->
-      <i class="bt-bubble"></i>
-      <i class="bt-bubble"></i>
-      <i class="bt-bubble"></i>
 
       <!-- 准星 -->
       <div class="bt-reticle">
@@ -200,7 +140,6 @@
           <!-- 刻度环：用虚线假装成一圈 tick -->
           <circle cx="400" cy="400" r="286" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="9" stroke-dasharray="1 17" />
           <circle cx="400" cy="400" r="306" fill="none" stroke="rgba(91,141,239,0.45)" stroke-width="1.2" />
-          <circle cx="400" cy="400" r="250" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
 
           <!-- 两段反向旋转的弧 -->
           <g class="bt-spin-a">
@@ -226,9 +165,6 @@
             <path d="M40 400 h120 M640 400 h120" />
           </g>
 
-          <!-- 中心点 -->
-          <circle cx="400" cy="400" r="3.4" fill="#ff7500" />
-          <circle cx="400" cy="400" r="1.4" fill="#fff" />
         </svg>
       </div>
 
@@ -246,10 +182,10 @@
 
       <!-- HUD -->
       <div class="bt-hud bt-hud-tl">
-        DHUA · ARCHIVE<br />
-        NODE <b>07</b> / 15 ENTRIES<br />
+        DHUA · IDENTITY<br />
+        PROFILE <b>WF</b> / 15 NODES<br />
         GLYPHS <b>57,254</b><br />
-        BUILD <b>2026.10.26</b>
+        BUILD <b>2026.11.03</b>
       </div>
       <div class="bt-hud bt-hex"></div>
 
