@@ -1,0 +1,817 @@
+/* ============================================================
+   开屏动画 · 样式
+   ------------------------------------------------------------
+   DNA 来源：dsh-boot-suite 的六幕开机动画（MIT）。
+   这里不复用它的代码和素材，只沿用它那套「冷启动 HUD」语汇：
+   近黑底 + 窄体大写 + 等宽读数 + 环形准星 + 颗粒/暗角
+   + 过曝洗白 + 交接时机位后撤（scale + blur）。
+
+   配色换成博客自己的：蓝 #5b8def 做 HUD 主色，
+   橙 #ff7500 只留给「锁定」和进度头，一屏只出现一次。
+   ------------------------------------------------------------
+   所有动画只动 transform / opacity / filter，不碰布局。
+   ============================================================ */
+
+/*
+  用 #boot 做命名空间（而不是 .boot）：
+   1) 特异性天然高，宿主页面的样式压不进来；
+   2) 组件版（Astro）里整块搬过去也不用改名。
+*/
+#boot {
+  --ink: #f4f7ff;
+  --ink-2: rgba(233, 240, 255, 0.62);
+  --ink-3: rgba(220, 232, 255, 0.34);
+  --hair: rgba(255, 255, 255, 0.14);
+  --hair-2: rgba(255, 255, 255, 0.06);
+  --bg: #05070c;
+  --bg-2: #0a0f1a;
+  --accent: #5b8def; /* 和站点同一个蓝 */
+  --hot: #ff7500; /* 只给锁定瞬间 */
+  --glitch-a: #ff3b30;
+  --glitch-b: #2971b8;
+  --paper: #e8f1fc; /* = 站点 --bg-mid 附近，交接时不闪 */
+
+  --din: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow",
+    system-ui, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", Consolas, "JetBrains Mono", monospace;
+  --zh: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", system-ui,
+    sans-serif;
+
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--zh);
+  contain: layout paint style;
+  /* 交接时整块抬起来给下面让路 */
+  transition: opacity 620ms cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* .gone 的规则放在文件末尾 —— 它要和 .handoff 抢 transition，靠源码顺序取胜 */
+
+/* ---------- 底：径向光 + 平面渐变 ---------- */
+#boot .bt-plate {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 62% 18%, rgba(91, 141, 239, 0.16), transparent 58%),
+    radial-gradient(80% 60% at 18% 92%, rgba(41, 113, 184, 0.12), transparent 62%),
+    linear-gradient(168deg, #0b1220 0%, #05070c 46%, #04060a 100%);
+}
+
+/* 颗粒：内联 SVG 噪声，零外部依赖 */
+#boot .bt-grain {
+  position: absolute;
+  inset: -20%;
+  opacity: 0.05;
+  mix-blend-mode: screen;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='220' height='220' filter='url(%23n)' opacity='0.55'/></svg>");
+  animation: bt-grain-shift 2.4s steps(3, end) infinite;
+}
+#boot.peak .bt-grain {
+  opacity: 0.1;
+}
+
+/* 暗角 */
+#boot .bt-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(122% 104% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.55) 100%),
+    radial-gradient(60% 42% at 50% 46%, rgba(255, 255, 255, 0.06), transparent 70%);
+}
+
+/* ---------- 鱼 ---------- */
+#boot .bt-fish {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  width: min(46vw, 660px);
+  transform: translate(-50%, -50%) translateX(-16%) scale(0.9);
+  opacity: 0;
+  filter: drop-shadow(0 0 52px rgba(91, 141, 239, 0.4));
+  will-change: transform, opacity, filter;
+  transition:
+    opacity 900ms cubic-bezier(0.32, 0, 0.2, 1),
+    transform 1400ms cubic-bezier(0.22, 0.68, 0.2, 1),
+    filter 900ms ease;
+}
+#boot .bt-fish svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+/* 鱼的三种状态由幕驱动 */
+#boot[data-act="1"] .bt-fish {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateX(0) scale(1);
+}
+#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-fish {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(0.78) translateY(-8%);
+  filter: drop-shadow(0 0 30px rgba(91, 141, 239, 0.18));
+}
+/* 游动：整条鱼极轻地起伏，比单摆尾巴更自然 */
+#boot .bt-fish svg {
+  animation: bt-swim 5.2s ease-in-out infinite;
+  transform-origin: 50% 62%;
+}
+/* 脊背扫光：描边自己走一遍，永远在鱼体内，不穿帮 */
+#boot .bt-shine {
+  opacity: 0;
+}
+#boot[data-act="1"] .bt-shine {
+  opacity: 1;
+  animation: bt-shine 1250ms cubic-bezier(0.32, 0, 0.2, 1) 320ms both;
+}
+
+/* 气泡：三颗，慢慢上浮 */
+#boot .bt-bubble {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  opacity: 0;
+}
+#boot[data-act="1"] .bt-bubble,
+#boot[data-act="2"] .bt-bubble {
+  animation: bt-bubble 3.6s ease-in-out infinite;
+}
+#boot .bt-bubble:nth-child(1) {
+  width: 7px;
+  height: 7px;
+  left: 26%;
+  top: 58%;
+  animation-delay: 0.1s !important;
+}
+#boot .bt-bubble:nth-child(2) {
+  width: 4px;
+  height: 4px;
+  left: 30%;
+  top: 64%;
+  animation-delay: 0.9s !important;
+}
+#boot .bt-bubble:nth-child(3) {
+  width: 5px;
+  height: 5px;
+  left: 22%;
+  top: 66%;
+  animation-delay: 1.7s !important;
+}
+
+/* ---------- 名称 ---------- */
+#boot .bt-brand {
+  position: absolute;
+  left: 50%;
+  top: 67%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 700ms ease 260ms;
+}
+#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-brand {
+  opacity: 1;
+}
+#boot .bt-brand-1 {
+  font-family: var(--din);
+  font-size: clamp(32px, 4.6vw, 68px);
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  /* 字距是往右加的，补一个等量缩进才不会视觉偏左 */
+  text-indent: 0.34em;
+  line-height: 1;
+  text-shadow: 0 0 28px rgba(91, 141, 239, 0.35);
+}
+#boot .bt-brand-2 {
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: clamp(9px, 0.95vw, 13px);
+  letter-spacing: 0.62em;
+  text-indent: 0.62em;
+  color: var(--ink-2);
+}
+#boot .bt-caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 0.78em;
+  margin-left: 0.12em;
+  background: var(--accent);
+  vertical-align: -0.06em;
+  animation: bt-blink 1s steps(1, end) infinite;
+}
+
+/* ---------- 准星 ---------- */
+#boot .bt-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(54vw, 68vh, 720px);
+  aspect-ratio: 1;
+  top: 43%;
+  transform: translate(-50%, -50%) scale(0.86);
+  opacity: 0;
+  transition:
+    opacity 620ms ease,
+    transform 900ms cubic-bezier(0.22, 0.68, 0.2, 1);
+  pointer-events: none;
+}
+#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-reticle {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+#boot .bt-reticle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#boot .bt-spin-a {
+  transform-origin: 400px 400px;
+  animation: bt-spin 9s linear infinite;
+}
+#boot .bt-spin-b {
+  transform-origin: 400px 400px;
+  animation: bt-spin 5.4s linear infinite reverse;
+}
+/* 锁定的那一下：准星收一下光圈 */
+#boot.locked .bt-reticle {
+  transition: transform 320ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  transform: translate(-50%, -50%) scale(1.03);
+}
+
+/* ---------- 中央文案 ---------- */
+#boot .bt-center {
+  position: absolute;
+  left: 50%;
+  bottom: 14.5%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: min(760px, 84vw);
+  opacity: 0;
+  transition: opacity 460ms ease;
+}
+#boot:is([data-act="3"], [data-act="4"], [data-act="5"]) .bt-center {
+  opacity: 1;
+}
+#boot .bt-zh {
+  font-size: clamp(16px, 1.5vw, 22px);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+#boot .bt-en {
+  font-family: var(--mono);
+  font-size: clamp(10px, 1vw, 13px);
+  letter-spacing: 0.4em;
+  color: var(--accent);
+  min-height: 1.4em;
+  white-space: nowrap;
+}
+#boot .bt-en i {
+  font-style: normal;
+  color: var(--ink-2);
+}
+
+/* ---------- 四角定位 ---------- */
+#boot .bt-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-corner {
+  opacity: 1;
+}
+#boot .bt-corner::before,
+#boot .bt-corner::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.5);
+}
+#boot .bt-corner::before {
+  width: 100%;
+  height: 1px;
+}
+#boot .bt-corner::after {
+  width: 1px;
+  height: 100%;
+}
+#boot .bt-tl {
+  left: 5.2%;
+  top: 8%;
+  transition-delay: 0ms;
+}
+#boot .bt-tr {
+  right: 5.2%;
+  top: 8%;
+  transition-delay: 90ms;
+}
+#boot .bt-tr::after {
+  right: 0;
+}
+#boot .bt-bl {
+  left: 5.2%;
+  bottom: 9%;
+  transition-delay: 180ms;
+}
+#boot .bt-bl::after {
+  bottom: 0;
+}
+#boot .bt-br {
+  right: 5.2%;
+  bottom: 9%;
+  transition-delay: 270ms;
+}
+#boot .bt-br::after {
+  right: 0;
+  bottom: 0;
+}
+
+/* ---------- HUD 读数 ---------- */
+#boot .bt-hud {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  opacity: 0;
+  transition: opacity 500ms ease 200ms;
+}
+#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-hud {
+  opacity: 1;
+}
+#boot .bt-hud-tl {
+  left: 5.2%;
+  top: 12%;
+  line-height: 1.9;
+}
+#boot .bt-hud-tl b {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+#boot .bt-hex {
+  right: 5.2%;
+  top: 12%;
+  width: 216px;
+  height: 132px;
+  overflow: hidden;
+  line-height: 1.55;
+  font-size: 9.5px;
+  color: rgba(120, 170, 255, 0.42);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 74%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 22%, #000 74%, transparent);
+}
+
+/* ---------- 进度 ---------- */
+#boot .bt-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 9.2%;
+  transform: translateX(-50%);
+  width: min(420px, 42vw);
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-bar {
+  opacity: 1;
+}
+#boot .bt-bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(91, 141, 239, 0.6), var(--accent));
+  box-shadow: 0 0 14px rgba(91, 141, 239, 0.6);
+  /* 尾端那颗亮点 */
+  position: relative;
+  transition: width 260ms linear;
+}
+#boot .bt-bar i::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: -3px;
+  width: 2px;
+  height: 9px;
+  background: var(--hot);
+  box-shadow: 0 0 12px rgba(255, 117, 0, 0.9);
+}
+
+/* ---------- 跳过 ---------- */
+#boot .bt-skip {
+  position: absolute;
+  right: 5.2%;
+  bottom: 8.8%;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--ink-3);
+  border: 1px solid var(--hair);
+  padding: 7px 12px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 400ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+#boot .bt-skip:hover {
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+#boot.ready .bt-skip {
+  opacity: 1;
+}
+
+/* ---------- 扫描线 ---------- */
+#boot .bt-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  top: -20%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(120, 170, 255, 0.07) 42%,
+    rgba(200, 225, 255, 0.16) 50%,
+    rgba(120, 170, 255, 0.07) 58%,
+    transparent
+  );
+  opacity: 0;
+}
+#boot[data-act="4"] .bt-scan {
+  animation: bt-scan 1400ms cubic-bezier(0.42, 0, 0.58, 1) both;
+}
+
+/* ---------- 色散故障 ---------- */
+#boot .bt-glitch {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+#boot[data-act="4"] .bt-glitch {
+  opacity: 1;
+}
+#boot .bt-glitch::before,
+#boot .bt-glitch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+}
+#boot .bt-glitch::before {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 59, 48, 0.16) 18%,
+    transparent 19%,
+    transparent 62%,
+    rgba(255, 59, 48, 0.12) 63%,
+    transparent 64%
+  );
+  animation: bt-gx 430ms steps(3, end) both;
+}
+#boot .bt-glitch::after {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(41, 113, 184, 0.18) 34%,
+    transparent 35%,
+    transparent 78%,
+    rgba(41, 113, 184, 0.14) 79%,
+    transparent 80%
+  );
+  animation: bt-gy 430ms steps(3, end) both;
+}
+
+/* ---------- 洗白 + 交接 ----------
+   时序上 flash 和 paper 是两层，纸色**压在**白闪之上：
+     白闪 0→1 后不再回落（回落就会露出下面还没盖住的暗场，中间那一帧是脏灰）
+     纸色再 0→1 盖住白闪 → 屏幕沉到站点底色 → 整块淡出，页面内容从底色里浮出来
+*/
+#boot .bt-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+#boot[data-act="5"] .bt-flash {
+  animation: bt-flash 620ms cubic-bezier(0.16, 0.84, 0.24, 1) both;
+}
+
+#boot .bt-paper {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 340ms linear;
+}
+#boot.wash .bt-paper {
+  opacity: 1;
+}
+
+/* 机位后撤：整块放大 3.5% + 轻微模糊。和白闪同时起，
+   前半段（白还没糊满）能看到暗场被推远，后半段被过曝吃掉 */
+#boot.handoff {
+  transform: scale(1.035);
+  filter: blur(5px);
+  transition:
+    transform 780ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 780ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 收尾：纸色已铺满，整块淡出。必须压在 .handoff 之后，才能盖掉它的 transition */
+#boot.gone {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 480ms ease;
+}
+
+/* ---------- 短版：所有过渡按比例收紧，节奏才不打架 ---------- */
+#boot.quick .bt-fish {
+  transition:
+    opacity 480ms ease,
+    transform 760ms cubic-bezier(0.22, 0.68, 0.2, 1),
+    filter 480ms ease;
+}
+#boot.quick .bt-reticle {
+  transition:
+    opacity 360ms ease,
+    transform 520ms cubic-bezier(0.22, 0.68, 0.2, 1);
+}
+#boot.quick .bt-brand {
+  transition: opacity 360ms ease 100ms;
+}
+#boot.quick .bt-corner,
+#boot.quick .bt-hud,
+#boot.quick .bt-bar,
+#boot.quick .bt-center,
+#boot.quick .bt-ripple {
+  transition-duration: 220ms;
+}
+
+/* ---------- 水痕 ---------- */
+#boot .bt-ripple {
+  position: absolute;
+  left: 50%;
+  top: 62.5%;
+  width: min(38vw, 500px);
+  height: 66px;
+  transform: translate(-50%, -50%) scaleX(0.7);
+  border-radius: 50%;
+  border: 1px solid rgba(120, 170, 255, 0.1);
+  box-shadow: inset 0 0 70px 10px rgba(91, 141, 239, 0.05);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 800ms ease 200ms;
+}
+#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-ripple {
+  opacity: 0.9;
+  animation: bt-ripple 4.2s ease-in-out infinite alternate;
+}
+
+/* ---------- 关键帧 ---------- */
+@keyframes bt-shine {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -78;
+    opacity: 0;
+  }
+}
+@keyframes bt-ripple {
+  0% {
+    transform: translate(-50%, -50%) scaleX(0.86) scaleY(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(-50%, -50%) scaleX(1.04) scaleY(0.94);
+    opacity: 0.9;
+  }
+}
+@keyframes bt-swim {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.8deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(1.1deg);
+  }
+}
+@keyframes bt-sweep {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 118%;
+  }
+}
+@keyframes bt-bubble {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.7);
+  }
+  25% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-120px) scale(1.1);
+  }
+}
+@keyframes bt-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes bt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes bt-scan {
+  0% {
+    top: -20%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    top: 110%;
+    opacity: 0;
+  }
+}
+@keyframes bt-gx {
+  0% {
+    transform: translate3d(-10px, 0, 0);
+    opacity: 0;
+  }
+  35% {
+    transform: translate3d(8px, -2px, 0);
+    opacity: 1;
+  }
+  70% {
+    transform: translate3d(-4px, 2px, 0);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+}
+@keyframes bt-gy {
+  0% {
+    transform: translate3d(10px, 0, 0);
+    opacity: 0;
+  }
+  35% {
+    transform: translate3d(-8px, 2px, 0);
+    opacity: 1;
+  }
+  70% {
+    transform: translate3d(5px, -2px, 0);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+}
+@keyframes bt-flash {
+  0% {
+    opacity: 0;
+  }
+  66% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes bt-grain-shift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  33% {
+    transform: translate3d(-2%, 1%, 0);
+  }
+  66% {
+    transform: translate3d(1%, -2%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ---------- 无障碍：不动派 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #boot .bt-grain,
+  #boot .bt-shine,
+  #boot .bt-fish svg,
+  #boot .bt-reticle .bt-spin-a,
+  #boot .bt-reticle .bt-spin-b,
+  #boot .bt-skip,
+  #boot .bt-caret {
+    animation: none !important;
+  }
+  #boot[data-act="4"] .bt-scan,
+  #boot[data-act="4"] .bt-glitch::before,
+  #boot[data-act="4"] .bt-glitch::after,
+  #boot[data-act="5"] .bt-flash {
+    animation: none !important;
+  }
+  #boot.handoff {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ---------- 窄屏 ----------
+   竖屏的宽度是瓶颈，三处必须改：
+     1) 鱼要缩到准星里面（否则环形只剩几段弧，读不出是准星）
+     2) 英文副标 letter-spacing 很大，nowrap 会直接被右边裁掉 → 允许折行并缩小
+     3) 名称和文案整体下移，把上半屏让给鱼
+*/
+@media (max-width: 720px) {
+  #boot .bt-fish {
+    width: min(62vw, 300px);
+    top: 37%;
+  }
+  #boot .bt-reticle {
+    width: min(86vw, 46vh, 430px);
+    top: 37%;
+  }
+  #boot .bt-brand {
+    top: 63.5%;
+  }
+  #boot .bt-brand-1 {
+    font-size: clamp(28px, 9.5vw, 42px);
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+  }
+  #boot .bt-brand-2 {
+    margin-top: 10px;
+    font-size: 8.5px;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+  }
+  #boot .bt-center {
+    bottom: 21%;
+    width: 90vw;
+  }
+  #boot .bt-zh {
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
+    margin-bottom: 9px;
+  }
+  #boot .bt-en {
+    font-size: 8.5px;
+    letter-spacing: 0.16em;
+    white-space: normal;
+    line-height: 1.75;
+  }
+  #boot .bt-hex {
+    display: none;
+  }
+  #boot .bt-hud-tl {
+    font-size: 9px;
+    top: 10.5%;
+  }
+  #boot .bt-bar {
+    bottom: 8%;
+    width: 62vw;
+  }
+  #boot .bt-skip {
+    right: 6%;
+    bottom: 11.6%;
+    font-size: 9px;
+    padding: 6px 9px;
+  }
+}

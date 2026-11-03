@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>开屏动画 · 设计稿 v1</title>
+    <meta name="robots" content="noindex" />
+    <link rel="stylesheet" href="./splash.css" />
+
+    <style>
+      /* ============================================================
+         下面这段只是「设计稿外壳」：假装首页在开屏后面，
+         用来验收交接时机位后撤是否自然。真实组件不带这段。
+         ============================================================ */
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        color: #1b2430;
+        background:
+          radial-gradient(120% 90% at 78% 8%, #f6faff 0%, rgba(255,255,255,0) 55%),
+          linear-gradient(168deg, #eef3fa 0%, #e4eefb 42%, #d7e8f8 100%);
+        min-height: 100%;
+        overflow: hidden;
+      }
+      body.boot-lock { overflow: hidden; }
+
+      .mock-nav {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 18px 34px; font-size: 14px;
+      }
+      .mock-nav b { letter-spacing: 0.22em; font-size: 15px; }
+      .mock-nav span { color: #5d6b7d; margin-left: 22px; }
+
+      .mock-hero { padding: 12vh 34px 0; max-width: 1180px; margin: 0 auto; }
+      .mock-hero h1 {
+        font-size: clamp(46px, 9vw, 128px); line-height: 0.94; margin: 0;
+        letter-spacing: -0.02em;
+      }
+      .mock-hero p { color: #5d6b7d; font-size: 17px; line-height: 1.9; max-width: 620px; margin: 22px 0 0; }
+      .mock-cards { display: flex; gap: 16px; padding: 40px 34px; max-width: 1180px; margin: 0 auto; flex-wrap: wrap; }
+      .mock-cards div {
+        flex: 1 1 220px; min-height: 128px; border-radius: 24px;
+        background: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.75);
+        box-shadow: 0 8px 32px rgba(70,105,160,0.1); padding: 18px;
+        font-size: 13px; color: #5d6b7d;
+      }
+
+      /* 设计稿控制台：只在开屏结束、或按 R 重播时用 */
+      .kit {
+        position: fixed; left: 18px; bottom: 18px; z-index: 10000;
+        display: none; gap: 8px; align-items: center;
+        padding: 8px 10px; border-radius: 999px;
+        background: rgba(255,255,255,0.78); border: 1px solid rgba(150,180,220,0.4);
+        box-shadow: 0 8px 24px rgba(70,105,160,0.16);
+        font-size: 12px; color: #5d6b7d; backdrop-filter: blur(12px);
+      }
+      body.ready .kit { display: flex; }
+      .kit button {
+        font: inherit; color: #1b2430; background: #fff; cursor: pointer;
+        border: 1px solid rgba(150,180,220,0.5); border-radius: 999px; padding: 5px 12px;
+      }
+      .kit button:hover { border-color: #5b8def; color: #5b8def; }
+      .kit b { color: #1b2430; }
+      .kit em { font-style: normal; color: #8b98a9; margin-left: 4px; }
+    </style>
+  </head>
+  <body>
+    <!-- ================= 开屏（组件本体） ================= -->
+    <div id="boot" data-act="0">
+      <div class="bt-plate"></div>
+      <div class="bt-grain"></div>
+      <div class="bt-vignette"></div>
+
+      <!-- 黑色大肥鱼 -->
+      <div class="bt-fish">
+        <svg viewBox="0 0 560 320" role="img" aria-label="黑色大肥鱼">
+          <defs>
+            <linearGradient id="fishBody" x1="0" y1="0" x2="0.25" y2="1">
+              <stop offset="0%" stop-color="#16253f" />
+              <stop offset="46%" stop-color="#0a1220" />
+              <stop offset="100%" stop-color="#020408" />
+            </linearGradient>
+            <linearGradient id="fishRim" x1="0" y1="0" x2="0.8" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.92)" />
+              <stop offset="46%" stop-color="rgba(150,195,255,0.45)" />
+              <stop offset="100%" stop-color="rgba(91,141,239,0.65)" />
+            </linearGradient>
+            <radialGradient id="fishGlow" cx="0.42" cy="0.38" r="0.6">
+              <stop offset="0%" stop-color="rgba(91,141,239,0.22)" />
+              <stop offset="100%" stop-color="rgba(91,141,239,0)" />
+            </radialGradient>
+          </defs>
+
+          <!-- 背鳍：压在最底下，只露一个尖 -->
+          <path
+            d="M234 80 C 262 40 318 24 354 44 C 320 58 292 72 262 90 Z"
+            fill="#132140"
+            stroke="url(#fishRim)"
+            stroke-width="1.4"
+            stroke-linejoin="round"
+          />
+
+          <!-- 整条鱼一个轮廓（身子和尾巴不分开画，接缝处就不会有一条线） -->
+          <path
+            d="M60 165
+               C 74 120 118 92 172 78
+               C 244 60 322 86 384 126
+               C 412 110 462 96 518 86
+               C 490 112 466 136 452 160
+               C 466 184 490 208 518 234
+               C 462 224 412 210 384 194
+               C 322 232 268 262 208 258
+               C 140 254 76 218 60 165 Z"
+            fill="url(#fishBody)"
+            stroke="url(#fishRim)"
+            stroke-width="2.4"
+            stroke-linejoin="round"
+          />
+
+          <!-- 身上一层极淡的辉光，压住纯黑 -->
+          <path
+            d="M60 165
+               C 74 120 118 92 172 78
+               C 244 60 322 86 384 126
+               C 412 110 462 96 518 86
+               C 490 112 466 136 452 160
+               C 466 184 490 208 518 234
+               C 462 224 412 210 384 194
+               C 322 232 268 262 208 258
+               C 140 254 76 218 60 165 Z"
+            fill="url(#fishGlow)"
+          />
+
+          <!-- 胸鳍 -->
+          <path
+            d="M198 200 C 224 222 256 232 284 232 C 258 250 216 242 194 220 Z"
+            fill="#16233a"
+            stroke="rgba(255,255,255,0.45)"
+            stroke-width="1.2"
+            stroke-linejoin="round"
+          />
+
+          <!-- 腮线 -->
+          <path
+            d="M150 108 C 140 134 140 178 152 206"
+            fill="none"
+            stroke="rgba(255,255,255,0.26)"
+            stroke-width="1.6"
+          />
+          <!-- 嘴 -->
+          <path
+            d="M62 174 C 74 184 88 186 100 183"
+            fill="none"
+            stroke="rgba(255,255,255,0.5)"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+          <!-- 肚子上的反光 -->
+          <path
+            d="M126 232 C 200 254 286 240 348 200"
+            fill="none"
+            stroke="rgba(170,210,255,0.3)"
+            stroke-width="4"
+            stroke-linecap="round"
+          />
+          <!-- 脊背扫光：pathLength 归一化成 0–100，靠 dashoffset 从头扫到尾 -->
+          <path
+            class="bt-shine"
+            d="M96 152 C 132 108 190 86 248 84 C 300 82 348 96 382 122"
+            fill="none"
+            stroke="rgba(255,255,255,0.95)"
+            stroke-width="2.6"
+            stroke-linecap="round"
+            filter="drop-shadow(0 0 5px rgba(255,255,255,0.85))"
+            pathLength="100"
+            stroke-dasharray="20 100"
+            stroke-dashoffset="0"
+          />
+          <!-- 眼 -->
+          <circle cx="110" cy="150" r="8" fill="#5b8def" />
+          <circle cx="110" cy="150" r="15" fill="none" stroke="rgba(91,141,239,0.4)" stroke-width="1.2" />
+          <circle cx="107.4" cy="147.4" r="2.4" fill="#dcebff" />
+        </svg>
+      </div>
+
+      <!-- 水痕：托一下，别让鱼像浮在半空 -->
+      <i class="bt-ripple"></i>
+
+      <!-- 气泡 -->
+      <i class="bt-bubble"></i>
+      <i class="bt-bubble"></i>
+      <i class="bt-bubble"></i>
+
+      <!-- 准星 -->
+      <div class="bt-reticle">
+        <svg viewBox="0 0 800 800" aria-hidden="true">
+          <!-- 刻度环：用虚线假装成一圈 tick -->
+          <circle cx="400" cy="400" r="286" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="9" stroke-dasharray="1 17" />
+          <circle cx="400" cy="400" r="306" fill="none" stroke="rgba(91,141,239,0.45)" stroke-width="1.2" />
+          <circle cx="400" cy="400" r="250" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+
+          <!-- 两段反向旋转的弧 -->
+          <g class="bt-spin-a">
+            <path d="M400 94 A 306 306 0 0 1 616 184" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.4" stroke-linecap="round" />
+            <path d="M400 706 A 306 306 0 0 1 184 616" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.4" stroke-linecap="round" />
+          </g>
+          <g class="bt-spin-b">
+            <path d="M400 120 A 280 280 0 0 1 610 300" fill="none" stroke="rgba(91,141,239,0.9)" stroke-width="1.6" stroke-linecap="round" />
+            <path d="M400 680 A 280 280 0 0 1 190 500" fill="none" stroke="rgba(91,141,239,0.9)" stroke-width="1.6" stroke-linecap="round" />
+          </g>
+
+          <!-- 四个角括号 -->
+          <g fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6">
+            <path d="M214 214 h52 M214 214 v52" />
+            <path d="M586 214 h-52 M586 214 v52" />
+            <path d="M214 586 h52 M214 586 v-52" />
+            <path d="M586 586 h-52 M586 586 v-52" />
+          </g>
+
+          <!-- 十字线：中间留空，不压住标题 -->
+          <g stroke="rgba(255,255,255,0.3)" stroke-width="1.2">
+            <path d="M400 40 v120 M400 640 v120" />
+            <path d="M40 400 h120 M640 400 h120" />
+          </g>
+
+          <!-- 中心点 -->
+          <circle cx="400" cy="400" r="3.4" fill="#ff7500" />
+          <circle cx="400" cy="400" r="1.4" fill="#fff" />
+        </svg>
+      </div>
+
+      <!-- 名称 -->
+      <div class="bt-brand">
+        <div class="bt-brand-1">DHUA</div>
+        <div class="bt-brand-2">ARCHIVE / 2026<span class="bt-caret"></span></div>
+      </div>
+
+      <!-- 中央文案 -->
+      <div class="bt-center">
+        <div class="bt-zh">正在整理归档</div>
+        <div class="bt-en"></div>
+      </div>
+
+      <!-- HUD -->
+      <div class="bt-hud bt-hud-tl">
+        DHUA · ARCHIVE<br />
+        NODE <b>07</b> / 15 ENTRIES<br />
+        GLYPHS <b>57,254</b><br />
+        BUILD <b>2026.10.26</b>
+      </div>
+      <div class="bt-hud bt-hex"></div>
+
+      <!-- 四角 -->
+      <i class="bt-corner bt-tl"></i>
+      <i class="bt-corner bt-tr"></i>
+      <i class="bt-corner bt-bl"></i>
+      <i class="bt-corner bt-br"></i>
+
+      <!-- 进度 / 跳过 -->
+      <div class="bt-bar"><i></i></div>
+      <button class="bt-skip" type="button" aria-label="跳过开屏">SKIP · ESC</button>
+
+      <!-- 效果层：flash 在下、paper 在上，先过曝成纯白，再沉到站点纸色 -->
+      <div class="bt-scan"></div>
+      <div class="bt-glitch"></div>
+      <div class="bt-flash"></div>
+      <div class="bt-paper"></div>
+    </div>
+
+    <!-- ================= 开屏后面的「假首页」 ================= -->
+    <div class="mock-nav">
+      <b>DHUA</b>
+      <div><span>笔记</span><span>标签</span><span>归档</span><span>知识库</span><span>关于</span></div>
+    </div>
+    <div class="mock-hero">
+      <h1>把极限<br />想清楚</h1>
+      <p>
+        工科数学分析笔记 15 篇。每一篇回答上一篇留下的问题：从确界到一致连续，
+        顺着一条线读下去，而不是按知识点背。
+      </p>
+    </div>
+    <div class="mock-cards">
+      <div>01 集合与确界<br />为什么需要实数系</div>
+      <div>07 夹逼准则<br />夹逼组是怎么构造的</div>
+      <div>13 一致连续<br />一个 δ 管整个区间</div>
+    </div>
+
+    <div class="kit">
+      <button id="kitReplay">↻ 重播</button>
+      <span>时长</span>
+      <button data-mode="full">完整 6.4s</button>
+      <button data-mode="quick">短版 3.3s</button>
+      <span>速度</span>
+      <button data-sp="0.5">0.5×</button>
+      <button data-sp="1">1×</button>
+      <button data-sp="2">2×</button>
+      <em>R 重播 · ESC 跳过</em>
+    </div>
+
+    <script src="./splash.js"></script>
+    <script>
+      /* 设计稿控制台（组件不带这段） */
+      document.addEventListener("boot:done", () => document.body.classList.add("ready"));
+
+      const q = new URLSearchParams(location.search);
+      const curSp = q.get("speed") || "1";
+      const curMode = q.get("mode") || "full";
+      const mark = (b) => (b.style.borderColor = "var(--accent)", (b.style.color = "var(--accent)"));
+
+      document.querySelectorAll(".kit [data-sp]").forEach((b) => {
+        if (b.dataset.sp === curSp) mark(b);
+        b.addEventListener("click", () => {
+          q.set("speed", b.dataset.sp);
+          location.search = q.toString();
+        });
+      });
+      document.querySelectorAll(".kit [data-mode]").forEach((b) => {
+        if (b.dataset.mode === curMode) mark(b);
+        b.addEventListener("click", () => {
+          q.set("mode", b.dataset.mode);
+          location.search = q.toString();
+        });
+      });
+
+      /* 重播就是刷新：开屏是一次性的，重放必须重来一遍文档 */
+      document.getElementById("kitReplay").addEventListener("click", () => location.reload());
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "r" || e.key === "R") location.reload();
+      });
+    </script>
+  </body>
+</html>
