@@ -23,6 +23,35 @@
   const root = /** @type {HTMLElement|null} */ (document.getElementById("boot"));
   if (!root) return;
 
+  /* ClientRouter 换页会重跑内联脚本。window 级标记保证一个文档会话只播一次，
+     否则每换一页都会重新盖一层开屏。 */
+  if (window.__bootPlayed) {
+    root.remove();
+    return;
+  }
+  window.__bootPlayed = true;
+
+  /* 仅首访：站点组件带 data-once="1"，独立设计稿不带（每次刷新都播）。
+     ?boot=1 无视记录强制重播，方便随时验收。
+     记录写在开播时而不是结束后：中途刷新不该再从头演一遍。 */
+  const ONCE = root.dataset.once === "1";
+  const FORCE = new URLSearchParams(location.search).get("boot") === "1";
+  const KEY = "dhua-boot-seen";
+  let seen = false;
+  try {
+    seen = window.localStorage.getItem(KEY) === "1";
+  } catch (e) {}
+  if (ONCE && seen && !FORCE) {
+    root.remove();
+    document.dispatchEvent(new CustomEvent("boot:done"));
+    return;
+  }
+  if (ONCE) {
+    try {
+      window.localStorage.setItem(KEY, "1");
+    } catch (e) {}
+  }
+
   const wordEl = root.querySelector(".bt-word");
   const skipEl = root.querySelector(".bt-skip");
 
