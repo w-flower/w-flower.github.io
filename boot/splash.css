@@ -1,856 +1,238 @@
 /* ============================================================
-   开屏动画 · 样式
+   开屏动画 · 样式 v2
    ------------------------------------------------------------
-   DNA 来源：dsh-boot-suite 的六幕开机动画（MIT）。
-   这里不复用它的代码和素材，只沿用它那套「冷启动 HUD」语汇：
-   近黑底 + 窄体大写 + 等宽读数 + 环形准星 + 颗粒/暗角
-   + 过曝洗白 + 交接时机位后撤（scale + blur）。
+   一条动作线：整张 b4 从 1.09 倍虚焦推到清晰，字标同时从
+   宽字距 + 虚焦收紧，最后整层淡出交接。没有准星、HUD、进度条、
+   故障、过曝，也没有并列效果。
 
-   配色换成博客自己的：蓝 #5b8def 做 HUD 主色，
-   橙 #ff7500 只留给「锁定」和进度头，一屏只出现一次。
-   ------------------------------------------------------------
-   所有动画只动 transform / opacity / filter，不碰布局。
+   配色全部取自原图：深蓝紫 / 粉紫 / 米白。不额外加强调色。
+   --sp 由 splash.js 写入，用于 ?speed= 整体调速。
    ============================================================ */
 
-/*
-  用 #boot 做命名空间（而不是 .boot）：
-   1) 特异性天然高，宿主页面的样式压不进来；
-   2) 组件版（Astro）里整块搬过去也不用改名。
-*/
 #boot {
-  --ink: #f4f7ff;
-  --ink-2: rgba(233, 240, 255, 0.62);
-  --ink-3: rgba(220, 232, 255, 0.34);
-  --hair: rgba(255, 255, 255, 0.14);
-  --hair-2: rgba(255, 255, 255, 0.06);
-  --bg: #05070c;
-  --bg-2: #0a0f1a;
-  --accent: #5b8def; /* 和站点同一个蓝 */
-  --hot: #ff7500; /* 只给锁定瞬间 */
-  --glitch-a: #ff3b30;
-  --glitch-b: #2971b8;
-  --paper: #e8f1fc; /* = 站点 --bg-mid 附近，交接时不闪 */
-
-  --din: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow",
-    system-ui, sans-serif;
+  --ink: #f3f0e9;
+  --ink-2: rgba(243, 240, 233, 0.44);
+  --night: #29305e; /* 取 b4 背景像素 rgb(41,48,94)，contain 的留白才不会有接缝 */
+  --sp: 1;
+  --din: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
   --mono: "Cascadia Mono", "SF Mono", Consolas, "JetBrains Mono", monospace;
-  --zh: "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", system-ui,
-    sans-serif;
 
   position: fixed;
   inset: 0;
   z-index: 9999;
   overflow: hidden;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--zh);
+  background: #06070c;
   contain: layout paint style;
-  /* 交接时整块抬起来给下面让路 */
-  transition: opacity 620ms cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-font-smoothing: antialiased;
+  transition:
+    opacity calc(760ms * var(--sp)) cubic-bezier(0.4, 0, 0.2, 1),
+    transform calc(760ms * var(--sp)) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* .gone 的规则放在文件末尾 —— 它要和 .handoff 抢 transition，靠源码顺序取胜 */
-
-/* ---------- 底：径向光 + 平面渐变 ---------- */
-#boot .bt-plate {
+/* ---------- 主画面 ----------
+   竖屏：cover，让猫的两只眼留在下半部。
+   横屏见文件末尾：改 contain，cover 会把猫眼下缘再切一刀。 */
+#boot .bt-art {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(120% 90% at 62% 18%, rgba(91, 141, 239, 0.16), transparent 58%),
-    radial-gradient(80% 60% at 18% 92%, rgba(41, 113, 184, 0.12), transparent 62%),
-    linear-gradient(168deg, #0b1220 0%, #05070c 46%, #04060a 100%);
-}
-
-/* 颗粒：内联 SVG 噪声，零外部依赖 */
-#boot .bt-grain {
-  position: absolute;
-  inset: -20%;
-  opacity: 0.05;
-  mix-blend-mode: screen;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='220' height='220' filter='url(%23n)' opacity='0.55'/></svg>");
-  animation: bt-grain-shift 2.4s steps(3, end) infinite;
-}
-#boot.peak .bt-grain {
-  opacity: 0.1;
-}
-
-/* 暗角 */
-#boot .bt-vignette {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(122% 104% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.55) 100%),
-    radial-gradient(60% 42% at 50% 46%, rgba(255, 255, 255, 0.06), transparent 70%);
-}
-
-/* ---------- 鱼 ---------- */
-#boot .bt-cat {
-  position: absolute;
-  left: 50%;
-  top: 38%;
-  width: min(34vw, 40vh, 370px);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%) scale(0.94);
-  opacity: 0;
-  will-change: transform, opacity;
+  background-image: url("./b4.jpg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: 45% 50%;
+  transform: scale(1.09);
+  filter: blur(6px);
+  opacity: 0.62;
+  will-change: transform, filter, opacity;
   transition:
-    opacity 340ms ease,
-    transform 1500ms cubic-bezier(0.22, 0.68, 0.2, 1);
+    transform calc(2600ms * var(--sp)) cubic-bezier(0.22, 0.68, 0.2, 1),
+    filter calc(1700ms * var(--sp)) ease,
+    opacity calc(1300ms * var(--sp)) ease;
 }
-#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-/* 锁定的那一下：猫轻轻顶一下，跟准星同步 */
-#boot.locked .bt-cat {
-  transform: translate(-50%, -50%) scale(1.035);
-  transition: transform 320ms cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-#boot .bt-cat-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-/* 剪影：从虚焦里浮出来。眼睛在它外面单独一层，所以能先亮 */
-#boot .bt-cat-body {
-  opacity: 0;
-  filter: blur(18px);
-  transition:
-    opacity 1300ms ease 380ms,
-    filter 1300ms ease 380ms;
-}
-#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-body {
-  opacity: 1;
+#boot.playing .bt-art {
+  transform: scale(1);
   filter: blur(0);
-}
-
-/* 睁眼：整组上下压缩再放开，就是"从一条缝到睁开" */
-#boot .bt-cat-eye {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
-  transform: scaleY(0.04);
-  opacity: 0;
-  transition:
-    transform 560ms cubic-bezier(0.18, 0.9, 0.24, 1.06),
-    opacity 220ms ease;
-}
-#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-eye {
-  transform: scaleY(1);
   opacity: 1;
 }
 
-/* 内耳偏绿，等剪影成形之后才亮 */
-#boot .bt-cat-ear {
-  opacity: 0;
-  transition: opacity 900ms ease 1000ms;
-}
-#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-ear {
-  opacity: 1;
-}
-#boot .bt-cat-nose {
-  opacity: 0;
-  transition: opacity 700ms ease 1350ms;
-}
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-nose {
-  opacity: 1;
-}
-
-/* 尾巴：极慢地摆，别抢眼睛的注意力 */
-#boot .bt-cat-tail {
-  transform-box: fill-box;
-  transform-origin: 3% 60%;
-}
-#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-tail {
-  animation: bt-wag 4.2s ease-in-out infinite;
-}
-
-/* 扫描线：剪影成形时从上往下扫一遍 */
-#boot .bt-cat-scan {
+/* 顶部压暗吃掉被原图裁断的飞船一角，底部轻压暗让猫有落点 */
+#boot .bt-shade {
   position: absolute;
-  left: -6%;
-  right: -6%;
-  top: 6%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(196, 228, 255, 0.9), transparent);
-  box-shadow: 0 0 18px rgba(91, 141, 239, 0.85);
-  opacity: 0;
+  inset: 0;
   pointer-events: none;
-}
-#boot[data-act="1"] .bt-cat-scan {
-  animation: bt-cat-scan 900ms linear 900ms both;
-}
-
-/* 状态灯：右上 45°，一屏只出现这一颗橙的 */
-#boot .bt-cat-live {
-  position: absolute;
-  left: calc(50% + 37%);
-  top: calc(50% - 33%);
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--hot);
-  box-shadow:
-    0 0 0 3px rgba(255, 117, 0, 0.16),
-    0 0 16px rgba(255, 117, 0, 0.85);
-  opacity: 0;
-  transition: opacity 420ms ease;
-}
-/* 状态灯跟准星一起出现，别在第一幕孤零零一颗橙点 */
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-live {
-  opacity: 1;
-  animation: bt-pulse 2.4s ease-in-out infinite;
+  background:
+    linear-gradient(180deg, rgba(4,5,10,.97) 0%, rgba(4,5,10,.78) 12%, rgba(4,5,10,.30) 34%, transparent 56%),
+    linear-gradient(0deg, rgba(3,4,9,.42) 0%, transparent 22%),
+    radial-gradient(120% 100% at 50% 45%, transparent 48%, rgba(3,4,9,.50) 100%);
 }
 
-/* 底座：托一下，别让它像浮在半空 */
-#boot .bt-cat-foot {
+/* ---------- 字标 ----------
+   放进上方夜空的留白，和下方猫脸形成上下呼应。 */
+#boot .bt-lockup {
   position: absolute;
   left: 50%;
-  top: 96%;
-  width: 118%;
-  height: 40px;
-  transform: translate(-50%, 4px);
-  border-radius: 50%;
-  background: radial-gradient(50% 50% at 50% 50%, rgba(91, 141, 239, 0.28), transparent 72%);
-  filter: blur(7px);
-  opacity: 0;
-  transition: opacity 900ms ease 600ms;
-}
-#boot:is([data-act="1"], [data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-cat-foot {
-  opacity: 1;
-}
-
-/* ---------- 名称 ---------- */
-#boot .bt-brand {
-  position: absolute;
-  left: 50%;
-  top: 68%;
-  transform: translate(-50%, -50%);
+  top: 15%;
+  transform: translateX(-50%);
   text-align: center;
-  opacity: 0;
+  white-space: nowrap;
   pointer-events: none;
-  transition: opacity 700ms ease 260ms;
 }
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-brand {
-  opacity: 1;
-}
-#boot .bt-brand-1 {
-  font-family: var(--din);
-  font-size: clamp(32px, 4.6vw, 68px);
-  font-weight: 700;
-  letter-spacing: 0.34em;
-  /* 字距是往右加的，补一个等量缩进才不会视觉偏左 */
-  text-indent: 0.34em;
-  line-height: 1;
-  text-shadow: 0 0 28px rgba(91, 141, 239, 0.35);
-}
-#boot .bt-brand-2 {
-  margin-top: 14px;
-  font-family: var(--mono);
-  font-size: clamp(9px, 0.95vw, 13px);
+#boot .bt-word {
+  font: 600 clamp(34px, 5.4vw, 62px)/1 var(--din);
+  color: var(--ink);
   letter-spacing: 0.62em;
   text-indent: 0.62em;
-  color: var(--ink-2);
+  filter: blur(7px);
+  opacity: 0.35;
+  will-change: letter-spacing, filter, opacity;
+  transition:
+    letter-spacing calc(1900ms * var(--sp)) cubic-bezier(0.22, 0.68, 0.2, 1),
+    text-indent calc(1900ms * var(--sp)) cubic-bezier(0.22, 0.68, 0.2, 1),
+    filter calc(1500ms * var(--sp)) ease,
+    opacity calc(1200ms * var(--sp)) ease;
 }
-#boot .bt-caret {
-  display: inline-block;
-  width: 0.5em;
-  height: 0.78em;
-  margin-left: 0.12em;
-  background: var(--accent);
-  vertical-align: -0.06em;
-  animation: bt-blink 1s steps(1, end) infinite;
+#boot.playing .bt-word {
+  letter-spacing: 0.40em;
+  text-indent: 0.40em;
+  filter: blur(0);
+  opacity: 1;
+  text-shadow: 0 0 34px rgba(180, 190, 255, 0.16);
 }
-
-/* ---------- 准星 ---------- */
-#boot .bt-reticle {
+#boot .bt-rule {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: min(42vw, 56vh, 512px);
-  aspect-ratio: 1;
-  top: 38%;
-  transform: translate(-50%, -50%) scale(0.86);
+  top: calc(100% + 26px);
+  transform: translateX(-50%) scaleX(0.55);
+  width: 220px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(243,240,233,.92), transparent);
   opacity: 0;
   transition:
-    opacity 620ms ease,
-    transform 900ms cubic-bezier(0.22, 0.68, 0.2, 1);
-  pointer-events: none;
+    opacity calc(760ms * var(--sp)) ease,
+    transform calc(900ms * var(--sp)) cubic-bezier(0.22, 0.68, 0.2, 1);
 }
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-reticle {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-#boot .bt-reticle svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-#boot .bt-spin-a {
-  transform-origin: 400px 400px;
-  animation: bt-spin 9s linear infinite;
-}
-#boot .bt-spin-b {
-  transform-origin: 400px 400px;
-  animation: bt-spin 5.4s linear infinite reverse;
-}
-/* 锁定的那一下：准星收一下光圈 */
-#boot.locked .bt-reticle {
-  transition: transform 320ms cubic-bezier(0.2, 0.9, 0.2, 1);
-  transform: translate(-50%, -50%) scale(1.03);
-}
-
-/* ---------- 中央文案 ---------- */
-#boot .bt-center {
+#boot .bt-sub {
   position: absolute;
   left: 50%;
-  bottom: 14.5%;
-  transform: translateX(-50%);
-  text-align: center;
-  width: min(760px, 84vw);
-  opacity: 0;
-  transition: opacity 460ms ease;
-}
-#boot:is([data-act="3"], [data-act="4"], [data-act="5"]) .bt-center {
-  opacity: 1;
-}
-#boot .bt-zh {
-  font-size: clamp(16px, 1.5vw, 22px);
+  top: calc(100% + 44px);
+  transform: translateX(-50%) scaleX(0.9);
+  font: 10px/1 var(--mono);
   letter-spacing: 0.42em;
   text-indent: 0.42em;
-  color: var(--ink);
-  margin-bottom: 12px;
-}
-#boot .bt-en {
-  font-family: var(--mono);
-  font-size: clamp(10px, 1vw, 13px);
-  letter-spacing: 0.4em;
-  color: var(--accent);
-  min-height: 1.4em;
-  white-space: nowrap;
-}
-#boot .bt-en i {
-  font-style: normal;
   color: var(--ink-2);
-}
-
-/* ---------- 四角定位 ---------- */
-#boot .bt-corner {
-  position: absolute;
-  width: 18px;
-  height: 18px;
   opacity: 0;
-  transition: opacity 420ms ease;
+  transition:
+    opacity calc(760ms * var(--sp)) ease,
+    transform calc(900ms * var(--sp)) cubic-bezier(0.22, 0.68, 0.2, 1);
 }
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-corner {
+#boot.settled .bt-rule,
+#boot.settled .bt-sub {
   opacity: 1;
-}
-#boot .bt-corner::before,
-#boot .bt-corner::after {
-  content: "";
-  position: absolute;
-  background: rgba(255, 255, 255, 0.5);
-}
-#boot .bt-corner::before {
-  width: 100%;
-  height: 1px;
-}
-#boot .bt-corner::after {
-  width: 1px;
-  height: 100%;
-}
-#boot .bt-tl {
-  left: 5.2%;
-  top: 8%;
-  transition-delay: 0ms;
-}
-#boot .bt-tr {
-  right: 5.2%;
-  top: 8%;
-  transition-delay: 90ms;
-}
-#boot .bt-tr::after {
-  right: 0;
-}
-#boot .bt-bl {
-  left: 5.2%;
-  bottom: 9%;
-  transition-delay: 180ms;
-}
-#boot .bt-bl::after {
-  bottom: 0;
-}
-#boot .bt-br {
-  right: 5.2%;
-  bottom: 9%;
-  transition-delay: 270ms;
-}
-#boot .bt-br::after {
-  right: 0;
-  bottom: 0;
-}
-
-/* ---------- HUD 读数 ---------- */
-#boot .bt-hud {
-  position: absolute;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--ink-3);
-  opacity: 0;
-  transition: opacity 500ms ease 200ms;
-}
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-hud {
-  opacity: 1;
-}
-#boot .bt-hud-tl {
-  left: 5.2%;
-  top: 12%;
-  line-height: 1.9;
-}
-#boot .bt-hud-tl b {
-  color: var(--ink-2);
-  font-weight: 600;
-}
-#boot .bt-hex {
-  right: 5.2%;
-  top: 12%;
-  width: 216px;
-  height: 132px;
-  overflow: hidden;
-  line-height: 1.55;
-  font-size: 9.5px;
-  color: rgba(120, 170, 255, 0.42);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 74%, transparent);
-  mask-image: linear-gradient(180deg, transparent, #000 22%, #000 74%, transparent);
-}
-
-/* ---------- 进度 ---------- */
-#boot .bt-bar {
-  position: absolute;
-  left: 50%;
-  bottom: 9.2%;
-  transform: translateX(-50%);
-  width: min(420px, 42vw);
-  height: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  opacity: 0;
-  transition: opacity 420ms ease;
-}
-#boot:is([data-act="2"], [data-act="3"], [data-act="4"], [data-act="5"]) .bt-bar {
-  opacity: 1;
-}
-#boot .bt-bar i {
-  display: block;
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, rgba(91, 141, 239, 0.6), var(--accent));
-  box-shadow: 0 0 14px rgba(91, 141, 239, 0.6);
-  /* 尾端那颗亮点 */
-  position: relative;
-  transition: width 260ms linear;
-}
-#boot .bt-bar i::after {
-  content: "";
-  position: absolute;
-  right: -2px;
-  top: -3px;
-  width: 2px;
-  height: 9px;
-  background: var(--hot);
-  box-shadow: 0 0 12px rgba(255, 117, 0, 0.9);
+  transform: translateX(-50%) scaleX(1);
 }
 
 /* ---------- 跳过 ---------- */
 #boot .bt-skip {
   position: absolute;
-  right: 5.2%;
-  bottom: 8.8%;
-  font-family: var(--mono);
-  font-size: 10px;
+  right: 4.4%;
+  bottom: 4.2%;
+  font: 10px/1 var(--mono);
   letter-spacing: 0.24em;
-  color: var(--ink-3);
-  border: 1px solid var(--hair);
-  padding: 7px 12px;
+  color: rgba(243, 240, 233, 0.34);
+  border: 1px solid rgba(243, 240, 233, 0.16);
+  padding: 8px 13px;
   background: transparent;
   cursor: pointer;
   opacity: 0;
   transition:
-    opacity 400ms ease,
+    opacity calc(500ms * var(--sp)) ease,
     color 200ms ease,
     border-color 200ms ease;
 }
 #boot .bt-skip:hover {
   color: var(--ink);
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(243, 240, 233, 0.42);
 }
-#boot.ready .bt-skip {
-  opacity: 1;
-}
+#boot.ready .bt-skip { opacity: 1; }
 
-/* ---------- 扫描线 ---------- */
-#boot .bt-scan {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 120px;
-  top: -20%;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(120, 170, 255, 0.07) 42%,
-    rgba(200, 225, 255, 0.16) 50%,
-    rgba(120, 170, 255, 0.07) 58%,
-    transparent
-  );
-  opacity: 0;
-}
-#boot[data-act="4"] .bt-scan {
-  animation: bt-scan 1400ms cubic-bezier(0.42, 0, 0.58, 1) both;
-}
-
-/* ---------- 色散故障 ---------- */
-#boot .bt-glitch {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-#boot[data-act="4"] .bt-glitch {
-  opacity: 1;
-}
-#boot .bt-glitch::before,
-#boot .bt-glitch::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  mix-blend-mode: screen;
-}
-#boot .bt-glitch::before {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 59, 48, 0.16) 18%,
-    transparent 19%,
-    transparent 62%,
-    rgba(255, 59, 48, 0.12) 63%,
-    transparent 64%
-  );
-  animation: bt-gx 430ms steps(3, end) both;
-}
-#boot .bt-glitch::after {
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(41, 113, 184, 0.18) 34%,
-    transparent 35%,
-    transparent 78%,
-    rgba(41, 113, 184, 0.14) 79%,
-    transparent 80%
-  );
-  animation: bt-gy 430ms steps(3, end) both;
-}
-
-/* ---------- 洗白 + 交接 ----------
-   时序上 flash 和 paper 是两层，纸色**压在**白闪之上：
-     白闪 0→1 后不再回落（回落就会露出下面还没盖住的暗场，中间那一帧是脏灰）
-     纸色再 0→1 盖住白闪 → 屏幕沉到站点底色 → 整块淡出，页面内容从底色里浮出来
-*/
-#boot .bt-flash {
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  opacity: 0;
-  pointer-events: none;
-}
-#boot[data-act="5"] .bt-flash {
-  animation: bt-flash 620ms cubic-bezier(0.16, 0.84, 0.24, 1) both;
-}
-
-#boot .bt-paper {
-  position: absolute;
-  inset: 0;
-  background: var(--paper);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 340ms linear;
-}
-#boot.wash .bt-paper {
-  opacity: 1;
-}
-
-/* 机位后撤：整块放大 3.5% + 轻微模糊。和白闪同时起，
-   前半段（白还没糊满）能看到暗场被推远，后半段被过曝吃掉 */
-#boot.handoff {
-  transform: scale(1.035);
-  filter: blur(5px);
-  transition:
-    transform 780ms cubic-bezier(0.4, 0, 0.2, 1),
-    filter 780ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* 收尾：纸色已铺满，整块淡出。必须压在 .handoff 之后，才能盖掉它的 transition */
+/* ---------- 交接：整层淡出 + 极轻的后撤 ---------- */
 #boot.gone {
   opacity: 0;
+  transform: scale(1.015);
   pointer-events: none;
-  transition: opacity 480ms ease;
 }
 
-/* ---------- 短版：所有过渡按比例收紧，节奏才不打架 ---------- */
-#boot.quick .bt-cat {
-  transition:
-    opacity 240ms ease,
-    transform 820ms cubic-bezier(0.22, 0.68, 0.2, 1);
-}
-#boot.quick .bt-cat-body {
-  transition:
-    opacity 760ms ease 200ms,
-    filter 760ms ease 200ms;
-}
-#boot.quick .bt-cat-ear {
-  transition: opacity 420ms ease 520ms;
-}
-#boot.quick .bt-reticle {
-  transition:
-    opacity 360ms ease,
-    transform 520ms cubic-bezier(0.22, 0.68, 0.2, 1);
-}
-#boot.quick .bt-brand {
-  transition: opacity 360ms ease 100ms;
-}
-#boot.quick .bt-corner,
-#boot.quick .bt-hud,
-#boot.quick .bt-bar,
-#boot.quick .bt-center,
-#boot.quick .bt-cat-foot {
-  transition-duration: 220ms;
-}
-
-/* ---------- 关键帧 ---------- */
-@keyframes bt-cat-scan {
-  0% {
-    top: 6%;
-    opacity: 0;
+/* ---------- 桌面横屏 ----------
+   cover 在 16:9 下会裁掉猫眼下缘，所以整张方图居中不裁，
+   左右用同色填充 + 渐变压黑收边，像一张居中的唱片封面。 */
+@media (min-aspect-ratio: 1/1) {
+  #boot {
+    background: var(--night);
   }
-  14% {
-    opacity: 0.9;
+  #boot .bt-art {
+    background-size: contain;
+    background-position: 50% 50%;
   }
-  86% {
-    opacity: 0.9;
+  #boot .bt-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgba(4,5,10,.90) 0%,
+      transparent 26%,
+      transparent 74%,
+      rgba(4,5,10,.90) 100%
+    );
   }
-  100% {
-    top: 94%;
-    opacity: 0;
-  }
-}
-@keyframes bt-wag {
-  0%,
-  100% {
-    transform: rotate(-5deg);
-  }
-  50% {
-    transform: rotate(8deg);
-  }
-}
-@keyframes bt-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 3px rgba(255, 117, 0, 0.16),
-      0 0 16px rgba(255, 117, 0, 0.85);
-  }
-  50% {
-    box-shadow:
-      0 0 0 6px rgba(255, 117, 0, 0.06),
-      0 0 24px rgba(255, 117, 0, 1);
-  }
-}
-@keyframes bt-blink {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-@keyframes bt-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes bt-scan {
-  0% {
-    top: -20%;
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  100% {
-    top: 110%;
-    opacity: 0;
-  }
-}
-@keyframes bt-gx {
-  0% {
-    transform: translate3d(-10px, 0, 0);
-    opacity: 0;
-  }
-  35% {
-    transform: translate3d(8px, -2px, 0);
-    opacity: 1;
-  }
-  70% {
-    transform: translate3d(-4px, 2px, 0);
-    opacity: 0.7;
-  }
-  100% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-}
-@keyframes bt-gy {
-  0% {
-    transform: translate3d(10px, 0, 0);
-    opacity: 0;
-  }
-  35% {
-    transform: translate3d(-8px, 2px, 0);
-    opacity: 1;
-  }
-  70% {
-    transform: translate3d(5px, -2px, 0);
-    opacity: 0.7;
-  }
-  100% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-}
-@keyframes bt-flash {
-  0% {
-    opacity: 0;
-  }
-  66% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-@keyframes bt-grain-shift {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  33% {
-    transform: translate3d(-2%, 1%, 0);
-  }
-  66% {
-    transform: translate3d(1%, -2%, 0);
-  }
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* ---------- 无障碍：不动派 ---------- */
-@media (prefers-reduced-motion: reduce) {
-  #boot .bt-grain,
-  #boot .bt-cat-tail,
-  #boot .bt-cat-scan,
-  #boot .bt-cat-live,
-  #boot .bt-reticle .bt-spin-a,
-  #boot .bt-reticle .bt-spin-b,
-  #boot .bt-skip,
-  #boot .bt-caret {
-    animation: none !important;
-  }
-  #boot[data-act="4"] .bt-scan,
-  #boot[data-act="4"] .bt-glitch::before,
-  #boot[data-act="4"] .bt-glitch::after,
-  #boot[data-act="5"] .bt-flash {
-    animation: none !important;
-  }
-  #boot.handoff {
-    transform: none;
-    filter: none;
-  }
-  /* 不动派也要看得到猫，只是不做睁眼和浮现 */
-  #boot .bt-cat-body,
-  #boot .bt-cat-eye,
-  #boot .bt-cat-ear,
-  #boot .bt-cat-nose {
-    opacity: 1 !important;
-    filter: none !important;
-    transform: none !important;
-  }
+  #boot .bt-lockup { top: 16%; }
+  #boot .bt-rule { top: calc(100% + 30px); }
+  #boot .bt-sub { top: calc(100% + 50px); }
 }
 
 /* ---------- 窄屏 ----------
-   竖屏的宽度是瓶颈，三处必须改：
-     1) 猫要落在准星里面（否则环形只剩几段弧，读不出是准星）
-     2) 英文副标 letter-spacing 很大，nowrap 会直接被右边裁掉 → 允许折行并缩小
-     3) 名称和文案整体下移，把上半屏让给猫
-*/
+   cover 在 390×844 上会把右上比丢圆盘切成半个、把猫眼放大到出画。
+   改 contain：整张方图完整居中偏下，上方纯色区放字标，下方纯色区放 SKIP，
+   谁都不压谁。上下用渐变压黑收边，方图才不像贴片。 */
 @media (max-width: 720px) {
-  #boot .bt-cat {
-    width: min(68vw, 260px);
-    top: 36%;
+  #boot { background: var(--night); }
+  #boot .bt-art {
+    background-size: contain;
+    background-position: 50% 58%;
+    /* 方图上下缘羽化到透明，融进底色，不留一条硬横线 */
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      transparent 0%, transparent 26%,
+      #000 40%, #000 68%,
+      transparent 82%, transparent 100%
+    );
+    mask-image: linear-gradient(
+      180deg,
+      transparent 0%, transparent 26%,
+      #000 40%, #000 68%,
+      transparent 82%, transparent 100%
+    );
   }
-  #boot .bt-reticle {
-    width: min(86vw, 46vh, 430px);
-    top: 37%;
+  #boot .bt-shade {
+    background:
+      linear-gradient(180deg, rgba(4,5,10,.72) 0%, rgba(4,5,10,.34) 24%, transparent 40%),
+      radial-gradient(120% 100% at 50% 50%, transparent 52%, rgba(3,4,9,.42) 100%);
   }
-  #boot .bt-brand {
-    top: 61%;
-  }
-  #boot .bt-brand-1 {
-    font-size: clamp(28px, 9.5vw, 42px);
-    letter-spacing: 0.28em;
-    text-indent: 0.28em;
-  }
-  #boot .bt-brand-2 {
-    margin-top: 10px;
-    font-size: 8.5px;
-    letter-spacing: 0.42em;
-    text-indent: 0.42em;
-  }
-  #boot .bt-center {
-    bottom: 21%;
-    width: 90vw;
-  }
-  #boot .bt-zh {
-    font-size: 14px;
-    letter-spacing: 0.3em;
-    text-indent: 0.3em;
-    margin-bottom: 9px;
-  }
-  #boot .bt-en {
-    font-size: 8.5px;
-    letter-spacing: 0.16em;
-    white-space: normal;
-    line-height: 1.75;
-  }
-  #boot .bt-hex {
-    display: none;
-  }
-  #boot .bt-hud-tl {
-    font-size: 9px;
-    top: 10.5%;
-  }
-  #boot .bt-bar {
-    bottom: 8%;
-    width: 62vw;
-  }
+  #boot .bt-lockup { top: 12%; }
+  #boot .bt-word { font-size: clamp(30px, 9.2vw, 44px); }
+  #boot .bt-rule { width: 170px; top: calc(100% + 22px); }
+  #boot .bt-sub { font-size: 9px; top: calc(100% + 38px); }
+  #boot .bt-skip { right: 6%; bottom: 5%; font-size: 9px; padding: 6px 10px; }
+}
+
+/* ---------- 不动派：不演，直接给静态画面再淡出 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #boot,
+  #boot .bt-art,
+  #boot .bt-word,
+  #boot .bt-rule,
+  #boot .bt-sub,
   #boot .bt-skip {
-    right: 6%;
-    bottom: 11.6%;
-    font-size: 9px;
-    padding: 6px 9px;
+    transition-duration: 0ms !important;
+    animation: none !important;
   }
 }
