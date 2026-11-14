@@ -6,6 +6,62 @@
     <description>DHua的个人博客</description>
     <language>zh-CN</language>
     <item>
+      <title>14 习题课：算术平均的极限</title>
+      <link>https://w-flower.github.io/notes/14-习题课-算术平均的极限/</link>
+      <guid>https://w-flower.github.io/notes/14-习题课-算术平均的极限/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>15 导数与微分</title>
+      <link>https://w-flower.github.io/notes/15-导数与微分/</link>
+      <guid>https://w-flower.github.io/notes/15-导数与微分/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>16 微分中值定理</title>
+      <link>https://w-flower.github.io/notes/16-微分中值定理/</link>
+      <guid>https://w-flower.github.io/notes/16-微分中值定理/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>17 洛必达法则</title>
+      <link>https://w-flower.github.io/notes/17-洛必达法则/</link>
+      <guid>https://w-flower.github.io/notes/17-洛必达法则/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>18 泰勒展开</title>
+      <link>https://w-flower.github.io/notes/18-泰勒展开/</link>
+      <guid>https://w-flower.github.io/notes/18-泰勒展开/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>19 泰勒公式的应用：凸性、极值与导数估计</title>
+      <link>https://w-flower.github.io/notes/19-泰勒公式的应用/</link>
+      <guid>https://w-flower.github.io/notes/19-泰勒公式的应用/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>20 函数的整体性态</title>
+      <link>https://w-flower.github.io/notes/20-函数的整体性态/</link>
+      <guid>https://w-flower.github.io/notes/20-函数的整体性态/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>21 微分中值定理的应用</title>
+      <link>https://w-flower.github.io/notes/21-微分中值定理的应用/</link>
+      <guid>https://w-flower.github.io/notes/21-微分中值定理的应用/</guid>
+      <description>工科数学分析 · evergreen</description>
+      <pubDate>Sat, 14 Nov 2026 00:00:00 GMT</pubDate>
+    </item>
+    <item>
       <title>附录A 三角函数：速查与推导</title>
       <link>https://w-flower.github.io/notes/附录a-三角函数速查/</link>
       <guid>https://w-flower.github.io/notes/附录a-三角函数速查/</guid>
